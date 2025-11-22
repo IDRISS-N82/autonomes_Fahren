@@ -29,8 +29,6 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LaneMarkings.msg"
   "msg/Trajectory.msg"
-  "msg/State.msg"
-  "msg/StatusInfo.msg"
   DEPENDENCIES builtin_interfaces geometry_msgs
 )
 
@@ -83,15 +81,6 @@ target_include_directories(controller_node PUBLIC
         $<INSTALL_INTERFACE:include>)
 rosidl_target_interfaces(controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-add_executable(state_machine_node src/state_machine_node.cpp)
-ament_target_dependencies(state_machine_node
-        rclcpp
-        std_msgs)
-target_include_directories(state_machine_node PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>)
-rosidl_target_interfaces(state_machine_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
 add_executable(watchdog_node src/watchdog_node.cpp)
 ament_target_dependencies(watchdog_node
         rclcpp
@@ -103,7 +92,7 @@ target_include_directories(watchdog_node PUBLIC
 rosidl_target_interfaces(watchdog_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 install(TARGETS
-        lane_detection_node trajectory_node controller_node state_machine_node watchdog_node
+        lane_detection_node trajectory_node controller_node watchdog_node
         DESTINATION lib/${PROJECT_NAME})
 
 install(TARGETS
