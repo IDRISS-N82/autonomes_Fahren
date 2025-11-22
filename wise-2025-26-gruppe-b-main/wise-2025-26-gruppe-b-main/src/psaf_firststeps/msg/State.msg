@@ -1,0 +1,4 @@
+uint8 STARTBOX=0
+uint8 DRIVING=1
+uint8 EMERGENCY_STOP=2
+uint8 state

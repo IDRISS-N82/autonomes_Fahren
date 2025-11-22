@@ -7,6 +7,7 @@
 #ifndef PSAF_FIRSTSTEPS_NODE_HPP_
 #define PSAF_FIRSTSTEPS_NODE_HPP_
 
+#include <array>
 #include <string>
 #include <vector>
 
