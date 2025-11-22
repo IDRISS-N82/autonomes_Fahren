@@ -81,18 +81,8 @@ target_include_directories(controller_node PUBLIC
         $<INSTALL_INTERFACE:include>)
 rosidl_target_interfaces(controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-add_executable(watchdog_node src/watchdog_node.cpp)
-ament_target_dependencies(watchdog_node
-        rclcpp
-        sensor_msgs
-        std_msgs)
-target_include_directories(watchdog_node PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>)
-rosidl_target_interfaces(watchdog_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
 install(TARGETS
-        lane_detection_node trajectory_node controller_node watchdog_node
+        lane_detection_node trajectory_node controller_node
         DESTINATION lib/${PROJECT_NAME})
 
 install(TARGETS
