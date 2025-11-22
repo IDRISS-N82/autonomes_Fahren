@@ -1,0 +1,376 @@
+= Workspace
+:toclevels: 1
+
+== Übersicht
+
+Der Workspace stellt den Ausgangspunkt für die Entwicklung im PSAF 1 und 2 dar. Der Workspace enthält bereits Pakete, die für die Entwicklung der Anwendungen in PSAF 1 und 2 benötigt werden. Die Kommunikationsschnittstellen zwischen den einzelnen Paketen sind bereits definiert und implementiert. Aufgabe der Studierenden ist es, die Funktionalität zu implementieren. So muss beispielsweise eine Spurerkennung, die Regelung, Objekterkennung und Parkplatzsuche umgesetzt werden. In der Abbildung xref:img-rosgraph[ROS Graph] sind die einzelnen Nodes sowie die Nachrichten, die diese unter einander austauschen, dargestellt.
+
+[#img-rosgraph]
+.ROS Graph
+image::rosgraph.svg[]
+
+== Workspace kopieren
+
+[IMPORTANT]
+Der Workspace besitzt Abhängigkeiten zur `libpsaf` und zur `uc_bridge`. Auf dem Fahrzeug sind beide Pakete bereits installiert. Bei der Entwicklung auf eigenen PCs müssen diese erst installiert werden. Eine Anleitung für die Installation ist im Abschnitt xref:Setup.adoc[Setup] zu finden.
+
+Jede Gruppe erstellt sich eine Kopie des Start-Workspace.
+
+
+Hierfür muss das Repository zunächst geklont werden:
+
+    git clone https://git-ce.rwth-aachen.de/af/ws-template.git
+
+Danach muss das Repository gebaut werden:
+
+    cd ws_template/
+    colcon build
+
+Anschließend muss der Workspace noch gesourct werden:
+
+    source install/local_setup.bash
+
+Damit das sourcen nicht jedes Mal erneut durchgeführt werden muss, kann der folgende Befehl verwendet werden, um das sourcen der bashrc Datei hinzuzufügen:
+
+    cd ws_template
+    echo "source install/local_setup.bash" >> ~/.bashrc
+
+[NOTE]
+Sollte es beim Bauen zu Fehlermeldungen kommen, sind Lösungen für die gängigsten Probleme im Abschnitt xref:Faq.adoc[Bekannte Probleme und FAQ] zu finden.
+
+== Starten der Nodes
+
+Um die Nodes zu starten, verfügt jede Node über ein Launch File. Dieser liegt im Ordner `launch` des jeweiligen Pakets. Für die `LaneDetection` Node ist das Launch File beispielsweise `lanedetection.launch.py`.
+
+Um die Node mit dem Launch-File zu starten, muss der folgende Befehl in einem Terminal ausgeführt werden.
+
+    ros2 launch <package_name> <launch_file_name>
+
+Am Beispiel der LaneDetection Node wird folgender Befehl ausgeführt:
+
+    ros2 launch psaf_lane_detection lanedetection.launch.py
+
+Der Workspace enthält auch Launch-Files, um alle Nodes gleichzeitig zu starten. Dies beinhaltet die Kamera und die ``uc_bridge``. Da es Unterschiede bei den Parametern der `uc_bridge` sowie bei der verwendete Kamera beim PSAF 1 Auto und beim PSAF 2 Auto gibt, sind auch zwei Launch-Files vorhanden.
+
+Zum Starten aller Nodes auf dem PSAF 1 Auto:
+
+    ros2 launch psaf_launch main_psaf1.launch.py
+
+Zum Starten aller Nodes auf dem PSAF 2 Auto:
+
+    ros2 launch psaf_launch main_psaf2.launch.py
+
+[WARNING]
+Zum Starten der einzelnen Pakete muss das Launchfile verwendet werden. Beim Starten der Node über den Befehl `ros2 run <package_name> <node_name>` werden nicht alle Parameter geladen. Insbesondere wird die `update()`-Methode nicht periodisch aufgerufen, wodurch die Node keine Ergebnisse veröffentlicht.
+
+
+== Aufbau des Workspaces
+
+Der Workspace enthält Ordner (Packages) für die im Carolo Cup benötigten Funktionen. Diese sind im nachfolgend genauer beschrieben. Informationen über die einzelnen Interfaces, Subscriber, Publisher und Nachrichtentypen können der https://git-ce.rwth-aachen.de/af/library[Dokumentation der libpsaf] entnommen werden. Eine Kurzübersicht über die Nachrichten und deren Datentypen ist im Abschnitt xref:Nachrichten.adoc[Nachrichten] zu finden.
+
+== Aufbau eines Packages
+
+Ein Package besteht in der Regel aus folgenden 5 Unterordnern. Ausnahmen bilden lediglich die Ordner `psaf_configuration`, `psaf_launch` und ``psaf_utils``.
+
+* config/ - Konfigurationsdateien
+* include/ - Header-Dateien
+* launch/ - Launch-Files für das entsprechende Package
+* src/ - Quellcode
+* test/ - Test-Dateien für das entsprechende Package
+
+Im Ordner `config/` kann die Update-Frequenz der jeweiligen Node festgelegt werden. Derzeit ist die Frequenz aller Nodes auf 30 Hz gesetzt. Die Frequenz gibt vor, wie oft die Methode `update()` der jeweiligen Node aufgerufen wird. Innerhalb dieser Methode müssen die Publisher aufgerufen werden.
+
+[IMPORTANT]
+Die Änderung der Frequenz im config File hat nur bei Verwendung des launch scripts einen Einfluss.
+
+== Erzeugen eines Packages
+
+Generell sollten keine weiteren Pakete benötigt werden. Falls eine Regeländerung im Carolo Cup dies dennoch erforderlich macht, kann ein neues Package wie folgt erzeugt werden:
+
+    cd src/
+    ros2 pkg create --build-type ament_cmake <package_name> --dependencies <[dependencies]>
+
+Um beispielsweise das Paket `controller` zu erzeugen, wurde folgender Befehl genutzt:
+
+    ros2 pkg create --build-type ament_cmake controller --dependecies rclcpp libpsaf psaf_configuration
+
+Die Abhängigkeiten können jederzeit in der `package.xml` Datei des Paketes angepasst werden.
+
+== Übersicht über die Pakete
+
+Jedes Paket(Node) enthält bereits die benötigte Basisstruktur. Dies beinhaltet die Erzeugung der Node mit den entsprechenden Subscribern und Publishern. Die Topic-Namen sind im Paket psaf_configuration definiert und dürfen nicht verändert werden. Jede Node verfügt außerdem über die Methode `void update()`. Diese wird periodisch mit der in der `config` Datei gesetzten Frequenz aufgerufen. (Standard: 30 HZ).
+Innerhalb dieser Methode sollen die Publisher aufgerufen werden, um die Ergebnisse der Node zu veröffentlichen. Jedes Paket muss mit Testfällen ausgestattet werden. Mehr Informationen, über die bereits existierenden Tests sind im Kapitel xref:Testen.adoc[Testen] zu finden.
+
+
+=== *psaf_configuration*
+
+Dieses Paket wird für die Konfiguration des Workspace verwendet. Dies beinhaltet die Definition der Node- und Topic-Namen. Die Topic-Namen sind fest vorgegeben und dürfen nicht geändert werden. Alle anderen Pakete besitzen eine Abhängigkeit zu diesem Paket.
+
+[IMPORTANT]
+Bevor mit der Entwicklung begonnen werden kann, muss in der Datei `psaf_configuration/include/psaf_configuration/configuration.hpp` die Variable für das verwendete Fahrzeug gesetzt werden. Beim Wettkampf Auto (PSAF 2) muss der Wert auf `false` gesetzt werden.
+
+[source,cpp]
+----
+#define PSAF1 true // für PSAF 1
+----
+
+Innerhalb der Datei gibt es noch zwei weitere Kontrollvariablen.
+
+[source,cpp]
+----
+#define DEBUG false // Ermöglicht die Ausgabe von Debug-Informationen
+----
+
+[source,cpp]
+----
+#define FORCE_TEST_PASS true // Erzwingt das Bestehen mancher Testfälle
+----
+
+[IMPORTANT]
+Zum Abschluss des Projekts muss die Flag `FORCE_TEST_PASS` auf false gesetzt werden, da alle Testfälle ausgeführt und bestanden werden müssen.
+
+
+'''
+
+=== *psaf_controller* ("controller")
+Die `Controller` Node ist für die Regelung des Fahrzeugs verantwortlich. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| TrajectorySubscriber | xref:Nachrichten.adoc#_trajectorytrajectory[trajectory/trajectory] | Die berechnete Trajektorie
+| StopLineSubscriber | xref:Nachrichten.adoc#_lane_detectionstop_line[lane_detection/stop_line] | Informationen über eine Stoplinie
+| SignSubscriber | xref:Nachrichten.adoc#_sign_detectionsign[sign_detection/sign] | Informationen über ein aktuell erkanntes Schild
+| SteeringSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_steering] | Der tatsächliche Einschlagswinkel des Fahrzeugs
+| SpeedSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_speed] | Die vom Fahrzeug gemessene Geschwindigkeit in cm/s
+| SteeringPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/set_steering] | Übermittelt den gewünschten Lenkwinkel in 1/10 Grad oder 1/100 rad
+| SpeedPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/set_motor_level] | Siehe Fußnote (*)
+| LightPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/light] | Topic zur Ansteuerung der Lichter
+|===
+
+(*) Der Publisher besteht intern aus zwei separaten Publishern: `uc_bridge/set_motor_level_forward` und `uc_bridge/set_motor_level_backward`. Übergeben wird jedoch die Geschwindigkeit in cm/s. Der Publisher rechnet die Geschwindigkeit intern in ein Motorlevel um und veröffentlicht das Ergebnis auf dem entsprechenden Topic. Falls negative Werte übergeben werden, wird auf dem ``uc_bridge/set_motor_level_backward`` Topic gesendet.
+
+'''
+
+=== *psaf_lane_detection*("lane_detection")
+Die `LaneDetection` Node muss mehrere Aufgaben erfüllen. Die Aufgaben sind:
+
+. *Spurerkennung* - Hauptaufgabe der Node. Muss immer erfüllt werden.
+. *Startlinienerkennung* - Nebenaufgabe. Muss für die Disziplin "Rundkurs mit Einparken" erfüllt werden.
+. *Stopplinienerkennung* - Nebenaufgabe. Muss für die Disziplin "Rundkurs mit Hindernissen" erfüllt werden.
+
+Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw]| Das Farbbild der Kamer mit einer Auflösung von 640x480 Pixeln
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| LaneMarkingsPublisher | xref:Nachrichten.adoc#_lane_detectionlane_markings[lane_detection/lane_markings] | Informationen über die erkannten Spurmarkierungen
+| StopLinePublisher | xref:Nachrichten.adoc#_lane_detectionstop_line[lane_detection/stop_line] | Informationen über die erkannten Stoplinie. Soll nur für die Disziplin "Rundkurs mit Hindernissen" verwendet werden.
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+Die Informationen über die erkannte Startlinie werden als `StatusInfo` an die StateMachine gesendet. Die entsprechende `StatusInfo` ist `PARKING_INTENT`, da nach dem Überfahren der Startlinie die Parkplatzsuche gestartet werden soll.
+
+Der Kontrollfluss für die LaneDetection kann wie folgt aussehen:
+
+[#img-controlflow-lane_detection]
+.Beispielhafte Verarbeitungspipeline für die Spurerkennung.
+image::controlflow-lane-detection.png[]
+
+Das Kamerabild im Format 640x480 wird vom `ImageSubscriber` empfangen. Falls das Bild nicht in der Auflösung 640x480 vorliegt, wird es entweder verkleinert oder vergrößert. Anschließend wird das Bild in ein Graustufenbild umgewandelt und danach in ein Binärbild. Das Binärbild wird in die Vogelperspektive transformiert. Hieraus werden dann die Spurmarkierungen extrahiert und überprüft, ob eine Stopplinie im Bild vorhanden ist. Die Erkennung der Startlinie kann in einer der beiden Methoden durchgeführt werden. Abschließend werden die Informationen in den entsprechenden Nachrichten verpackt und periodisch über die Methode `update()` veröffentlicht.
+
+[NOTE]
+Die obige Verarbeitungspipeline ist nur als Beispiel gedacht. Falls eine andere Verarbeitungspipeline genutzt werden soll, ist dies möglich. Hierbei ist darauf zu achten, dass die Ergebnisse im korrekten Format auf den entsprechenden Topics gesendet werden. Falls die Pipeline verändert wird, müssen die Testfälle entsprechend modifiziert werden.
+
+[IMPORTANT]
+Die Stopplinenerkennung beinhaltet auch die Berechnung der Halteposition an Fußgängerüberwegen. Diese Funktion ist im Master-Cup erforderlich.
+
+
+[WARNING]
+Die Parameter für die https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html[Homography] sind in der Datei `psaf_lane_detection/include/psaf_lane_detection/lane_detection_node.hpp` gesetzt. Die Parameter unterscheiden sich für das PSAF 1 und PSAF 2 Fahrzeug. Um das beste Ergebnis zu erreichen, müssen die Werte für das verwendete Fahrzeug berechnet und im Header angepasst werden.
+
+'''
+
+=== *psaf_launch*
+
+Dieses Paket enthält Launch-Files für den Workspace. Hierüber können alle Pakete, die `uc_bridge` sowie die Realsense Kamera gestartet werden.
+
+Zum Starten der Nodes auf dem PSAF 1 Auto:
+
+    ros2 launch psaf_launch main_psaf1.launch.py
+
+Zum Starten der Nodes auf dem PSAF 2 Auto:
+
+    ros2 launch psaf_launch main_psaf2.launch.py
+
+Die Konfigurationsdateien für die `uc_bridge` und die `Realsense Kamera` sind im Ordner `config` gespeichert.
+
+'''
+
+=== psaf_manual_mode ("manual_mode")
+
+Die `ManualMode` Node ist eine Hilfs-Node, um auf Events während der Fahrt mit Fernsteuerung zu reagieren. Die Signale der Fernsteuerung werden direkt auf dem `uc_board` verarbeitet. Die `uc_bridge` meldet den Eintritt in den manuellen Modus über das Topic `uc_bridge/manual_signals`. Die `ManuelMode` Node empfängt diese und  informiert die StateMachine über den Eintritt und Verlassen des manuellen Modus. Sie empfängt Informationen über die zurückgelegte Strecke und Richtung während der manuellen Fahrt. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| ManualModeSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/manual_signals] | Informationen über den manuellen Modus. 1, falls manuell gefahren wird, 0 sonst.
+| SteeringSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_steering] | Der tatsächliche Einschlagswinkel des Fahrzeugs
+| SpeedSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_speed] | Die vom Fahrzeug gemessene Geschwindigkeit in cm/s
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_object_detection ("object_detection")
+
+Die `ObjectDetection` Node ist für die Erkennung von Hindernissen auf der Fahrbahn zuständig. Dies beinhaltet Objekte mit Vorfahrtrecht an Kreuzungen. Zur Erkennung der Objekte kann das Farbbild, das Tiefenbild sowie die Ultraschallsensoren genutzt werden. Die Anzahl der Ultraschallsensoren unterscheidet sich je nach Fahrzeug. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw, depth/image_raw_rect]| Das Farbbild der Kamer mit einer Auflösung von 640x480 Pixeln.
+Das Tiefenbild der Kamera mit einer Auflösung von 1280x720 Pixeln
+| UltrasonicSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/<pos>] | <pos> beschreibt die Position des Sensors am Fahrzeug
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| ObjectPublisher | xref:Nachrichten.adoc#_object_detectionobstacle[object_detection/obstacle] | Informationen über ein Hindernis. Jedes Hindernis muss einzeln veröffentlicht werden.
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_parking ("parking")
+
+Die `Parking` Node ist für das Einparken und das Ausparken zuständig. Die Erkennung eines Parkplatzes ist nicht Teil dieser Node. Zur Kommunikation verfüg das Paket über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ParkingSpotSubscriber | xref:Nachrichten.adoc#_parking_detectionparking_spot[parking_detection/parking_spot] | Informationen über den erkannten Parkplatz.
+| UltraSonicSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/<pos>] | <pos> beschreibt die Position des Sensors am Fahrzeug
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| SteeringPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/set_steering] | Der Einschlagswinkel des Fahrzeugs in 1/10 Grad oder 1/100 rad
+| SpeedPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/set_motor_level] | Die Geschwindigkeit des Fahrzeugs in cm/s
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+| LightPublisher | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/light] | Informationen über die Lichter des Fahrzeugs
+|===
+
+'''
+
+=== psaf_parking_detection ("parking_detection")
+
+Die `ParkingDetection` ist für die Erkennung von parallelen und senkrechten Parkplätzen zuständig. Die Informationen über erkannte Parkplätze werden über das Topic xref:Nachrichten.adoc#_parking_detectionparking_spot[parking_detection/parking_spot] veröffentlicht. Zur Erkennung der Parkplätze kann das Farbbild, das Tiefenbild sowie die Ultraschallsensoren genutzt werden. Die Anzahl der Ultraschallsensoren unterscheidet sich je nach Fahrzeug. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw, depth/image_rect_raw]| Das Farbbild und Tiefenbild der Kamera
+| UltrasonicSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/<pos>] | <pos> beschreibt die Position des Sensors am Fahrzeug
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| ParkingSpotPublisher | xref:Nachrichten.adoc#_parking_detectionparking_spot[parking_detection/parking_spot] | Informationen über einen erkannten Parkplatz.
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_sign_detection ("sign_detection")
+
+Die `SignDetection` Node ist für die Erkennung von Verkehrszeichen zuständig. Die möglichen Schilder sind im Abschnitt xref:Faq.adoc#_welche_schilder_müssen_erkannt_werden[Faq] beschrieben. Die Schilderkennung ist nur im Master Cup erforderlich. Im Rahmen des PSAF 1 kann die Schilderkennung als Zusatzaufgabe implementiert werden. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw]| Das Farbbild der Kamer mit einer Auflösung von 640x480 Pixeln.
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| SignPublisher | xref:Nachrichten.adoc#_sign_detectionsign[sign_detection/sign]  | Informationen über ein erkanntes Verkehrszeichen.
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_start_box ("start_box")
+
+Zu Beginn der Fahrt befindet sich das Fahrzeug in einer geschlossenen Startbox. Am Tor der Startbox befindet sich ein Stop Schild und ein QR-Code. Nachdem sich das Tor geöffnet hat, muss das Fahrzeug die Startbox verlassen. Die `Startbox` Node ist für die Erkennung der Öffnung der Startbox zuständig. Hierfür kann entweder das Stoppschild, der QR-Code oder die Ultraschallsensoren (Tor wird nicht mehr von den Ultraschallsensoren erfasst) genutzt werden. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw]| Das Farbbild der Kamer mit einer Auflösung von 640x480 Pixeln.
+| UltrasonicSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge<pos>] | <pos> beschreibt die Position des Sensors am Fahrzeug
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der State Machine
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_state_machine ("state_machine")
+
+[IMPORTANT]
+Die `StateMachine` Node besitzt ein besonderes Publisher-Schema. Der State wird nicht nur durch die `update()` Methode veröffentlicht, sondern auch bei jedem Zustandswechsel direkt. Auf diese Weise soll ein neuer Zustand schnellstmöglich veröffentlicht werden und nicht erst beim nächsten Tick.
+
+Die `StateMachine` Node ist die zentrale Steuerungseinheit des PSAF. Sie beinhaltet ein Zustandsautomat, dessen Zustände die aktuelle Fahraufgabe repräsentieren. Ein Zustandswechsel wird über die `StatusInfos` ausgelöst, die von den anderen Nodes als Reaktion auf bestimmte Events gesendet werden. So sendet die `LaneDetection` die StatusInfo `PARKING_INTENT`, falls die Startlinie detektiert wurde. Die StateMachine verfügt über Transition Guards, die die Zustandsübergänge verhindern. So kann beispielsweise in der Disziplin "Rundkurs mit Hindernissen" keine Parkplatzsucht durchgeführt werden. Die Festlegung der Disziplin erfolgt über die Knöpfe am Heck des Fahrzeugs. Da am PSAF 1 Auto keine Knöpfe angebracht werden, muss die Information manuell veröffentlicht werden. Hierfür muss auf dem Topic `uc_bridge/button` eine 0 für die Disziplin "Rundkurs mit Einparken" und eine 1 für die Disziplin "Rundkurs mit Hindernissen" gesendet werden.
+
+Mit folgendem Befehl kann manuell eine Disziplin gesetzt werden, wobei der Integer Wert im `data` Feld der Disziplin entspricht:
+
+    ros2 topic pub /uc_bridge/button std_msgs/msg/Int8 "{data: 1}"
+
+Die `StateMachine` Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ErrorSubscriber | xref:Nachrichten.adoc#_watchdogerror_message[watchdog/error_message] | Informationen über einen (Hardware-)Fehler
+| StatusInfoSubscriber | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+| ButtonSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/button] | Informationen über den gedrückten Knopf zur Auswahl der Disziplin
+| SignSubscriber | xref:Nachrichten.adoc#_sign_detectionsign[sign_detection/sign]  | Informationen über ein erkanntes Verkehrszeichen
+| StatePublisher | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Informationen über den aktuellen Zustand der StateMachine
+|===
+
+'''
+
+=== psaf_trajectory ("trajectory")
+
+Die `Trajectory` Node ist für die Planung der Trajektorie zuständig. Hierfür empfängt die Node die aktuell erkannten Fahrbahnmarkierungen und Informationen über die erkannten Objekte, die das Fahrzeug beachten und gegebenenfalls umfahren muss. Die Node verfügt über folgende Kommunikationsschnittstellen:
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ObjectSubscriber | xref:Nachrichten.adoc#_object_detectionobstacle[object_detection/obstacle] | Informationen über die erkannten Objekte
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der StateMachine
+| LaneMarkingsSubscriber | xref:Nachrichten.adoc#_lane_detectionlane_markings[lane_detection/lane_markings] | Informationen über die erkannten Fahrbahnmarkierungen
+|TrajectoryPublisher | xref:Nachrichten.adoc#_trajectorytrajectory[trajectory/trajectory] | Informationen über die Trajektorie
+| StatusInfoPublisher | xref:Nachrichten.adoc#_statusstatus_info[status/status_info] | Statusinformationen für die StateMachine
+|===
+
+'''
+
+=== psaf_utils ("utils")
+
+Dieses Paket enthält Hilfsfunktionen und -programme. Im Ordner `psaf_sim_controller` befindet sich eine Python ROS Node, um das Fahrzeug in der Simulationsumgebung präziser steuern zu können. Um die Node zu starten, kann der folgende Befehl genutzt werden:
+
+    ros2 run psaf_utils simulation_controller
+
+Anschließend öffnet sich die in nachfolgend gezeigte xref:img-sim_controller[GUI]. Die Topic-Namen können angepasst werden, um das Motorlevel und das Lenkwinkel Topic zu verändern. Die derzeit eingetragenen Namen entsprechen den derzeit verwendeten Topic-Namen in der Simulationsumgebung. Nach Bestätigung der Namen durch den [OK] Knopf, kann das Fahrzeug über W, A, S, D oder die Pfeiltasten gesteuert werden.
+
+'''
+
+[#img-sim_controller]
+.GUI der Fernsteuerung
+image::sim_controller.png[]
+
+Im Ordner `src` befindet sich zusätzlich noch die Datei `utils.cpp`. Hier sind verschiedene Methoden für die Generierung von Streckenabschnitten sowie Testimplmentierungen für die Detektion der Spurmarkierungen und mehr zu finden. Diese Datei wird weder gebaut noch getestet.
+
+'''
+=== psaf_watchdog ("watchdog")
+
+Die `Watchdog` Node ist für die Überwachung der Hardware des Fahrzeugs zuständig. Hierfür werden unter anderem die Kamera, Ultraschallsensoren und die zurückgemeldeten Werte für Lenkung und Geschwindigkeit überwacht. Im kritischen Fehlerfall (bspw. Ausfall der Kamera) wird eine Fehlermeldung an die `StateMachine` gesendet. Im Falle eines unkritischen Fehlers (bspw. Ausfall eines nicht genutzten Ultraschallsensors) wird eine Warnung an die `StateMachine` gesendet.
+
+|===
+| *Schnittstelle* | *Topic Name* | *Beschreibung*
+| ImageSubscriber | xref:Nachrichten.adoc#_colorimage_raw_und_depthimage_rect_raw[color/image_raw, depth/image_rect_raw] | Bildinformationen der Kamera
+| UltrasonicSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/<pos>]| Messwerte der Ultraschallsensoren
+| SpeedSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_speed] | Geschwindigkeitswerte des Fahrzeugs
+| SteeringSubscriber | xref:Nachrichten.adoc#_uc_bridge_nachrichten[uc_bridge/get_steering] | Lenkswerte des Fahrzeugs
+| StateSubscriber | xref:Nachrichten.adoc#_state_machinestate[state_machine/state] | Der aktuelle Zustand der StateMachine
+| ErrorPublisher | xref:Nachrichten.adoc#_watchdogerror_message[watchdog/error_message] | Fehlermeldungen
+
+|===
+
+
+
+
+

@@ -1,0 +1,496 @@
+= Nachrichten
+:toclevels: 1
+
+Dieses Kapitel beschäftigt sich mit den in diesem Workspace verwendeten Nachrichten. Um eine Nachricht zu empfangen, verfügen die Pakete über entsprechende Subscriber. Um eine Nachricht zu senden, muss die Publisher Methode aufgerufen werden. Dies sollte optimalerweise in der `update()` Methode des jeweiligen Paketes erfolgen. Die `update` Methode wird periodisch entsprechend der in der `config.json` Datei definierten Frequenz aufgerufen.
+
+'''
+
+== `color/image_raw` und `depth/image_rect_raw`
+
+Beide Nachrichten werden von der Realsense Kamera ausgesendet. Bei der `color/image_raw` Nachricht handelt es sich um ein RGB Farbbild mit einer Auflösung von 640x480 Pixeln. Bei der `depth/image_rect_raw` Nachricht handelt es sich um das Tiefenbild mit einer Auflösung von 1280x720 Pixeln.
+Die Nachrichten werden von der https://git-ce.rwth-aachen.de/af/library[libpsaf] intern vom ursprünglichen ROS Format http://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/Image.html[sensor_msgs::msg::Image] in das OpenCV Bildformat https://docs.opencv.org/4.5.5/d3/d63/classcv_1_1Mat.html[cv::Mat] umgewandelt. Die Nachrichten sind in einem Vektor gespeichert. Der Zugriff erfolgt über die Position der Nachricht im Vektor über folgende Methode:
+
+[source,cpp]
+----
+
+    void processImage(cv::Mat & img, int sensor)
+
+----
+
+Der Parameter `sensor` gibt hierbei an, welches Bild genutzt werden soll. Die Werte sind standardmäßig 0 für das RGB Bild und 1 für das Tiefenbild.
+
+[NOTE]
+Nicht jedes Paket kann beide Nachrichten empfangen. Die Spurerkennung kann nur das RGB Farbbild empfangen.
+
+'''
+
+== `lane_detection/lane_markings`
+
+Diese Nachricht wird zum Versenden der erkannten Spurmarkierungen verwendet. Die Nachricht hat den Typ `libpsaf_msgs::msg::LaneMarkings`. Sie besteht intern aus 3 Vektoren, welche die Punkte für die Linke, Mittlerer und Rechte Spurmarkierung enthalten sowie weiteren Parametern für zusätzliche Informationen. Eine genaue Definition ist in der Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf] zu finden.
+
+*Publisher*
+
+Die Nachricht wird über den `LaneMarkingsPublisher` versendet. Um die Nachricht zu veröffentlichen, stehen mehrere Funktionen zur Verfügung. Es kann sowohl direkt die Nachricht übergeben werden als auch die einzelnen Parameter. Falls die einzelnen Parameter übergeben werden, wird vom Publisher daraus intern eine Nachricht erzeugt und diese veröffentlicht.
+
+[source,cpp]
+----
+
+void publishLaneMarkings(libpsaf_msgs::msg::LaneMarkings & laneMarkings);
+
+
+void publishLaneMarkings(
+  std::vector<geometry_msgs::msg::Point> leftLane,
+  std::vector<geometry_msgs::msg::Point> centerLane,
+  std::vector<geometry_msgs::msg::Point> rightLane,
+  bool has_blocked_area, bool no_overtaking, int side);
+
+
+void publishLaneMarkings(
+  std::vector<cv::Point> leftLane,
+  std::vector<cv::Point> centerLane,
+  std::vector<cv::Point> rightLane,
+  bool has_blocked_area, bool no_overtaking, int side);
+----
+
+*Subscriber*
+
+Um `LaneMarkings` Nachrichten zu empfangen, steht die folgende Funktion zur Verfügung.
+
+[source,cpp]
+----
+
+    void processLaneMarkings(const libpsaf_msgs::msg::LaneMarkings::ConstPtr & p);
+
+----
+
+'''
+== `lane_detection/stop_line`
+
+Diese Nachricht enthält Informationen über eine Haltelinie und hat den Typ `libpsaf_msgs::msg::StopLine.`.
+Sie verfügt intern über einen Parameter `stop_line_detected`, welcher angibt, ob eine Haltelinie erkannt wurde. Des Weiteren ist der Typ der Haltelinie (in eigener Fahrspur oder nicht) und die Position der Stopplinie als  http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Point.html[geometry_msgs::msg::Point] enthalten. Der Punkt ist immer in der Mitte der Haltelinie.
+
+[NOTE]
+Im Carolo Cup muss diese Nachricht nur in der zweiten Disziplin verwendet werden. In Disziplin 1 (Rundkurs mit Einparken) muss NICHT auf Stopplinien reagiert werden.
+
+**Publisher**
+
+Um `StopLine` Nachrichten zu veröffentlichen stehen die folgenden Funktionen zur Verfügung.
+
+[source,cpp]
+----
+
+    void publishStopLine(libpsaf_msgs::msg::StopLine & stopLine);
+
+    void publishStopLine(bool stop_line_detected, unsigned int type, int x, int y);
+
+----
+
+**Subscriber**
+
+Um Nachrichten vom Typ `libpsaf_msgs::msg::StopLine` zu empfangen steht die folgende Funktion zur Verfügung.
+
+[source,cpp]
+----
+
+    void processStopLine(const libpsaf_msgs::msg::StopLine::ConstPtr & p);
+
+----
+
+'''
+== `object_detection/obstacle`
+
+Diese Nachricht enthält Informationen über gefundene Objekte. Die Nachricht repräsentiert genau ein Objekt. Falls mehrere Objekte gefunden wurden, müssen diese separat veröffentlicht werden. Die Nachricht hat den Typ ``libpsaf_msgs::msg::Obstacle``. Sie enthält unter anderem den Typ, die Position, die Distanz und die Geschwindigkeit des Objektes. Eine genaue Definition ist in der Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf] zu finden.
+
+**Publisher**
+
+Um `Obstacle` Nachrichten zu veröffentlichen, stehen ähnliche Methoden wie bei `LaneMarkings` zur Verfügung. So kann entweder direkt eine ``libpsaf_msgs::msg::Obstacle`` Nachricht veröffentlicht werden oder die einzelnen Parameter übergeben werden, welche intern in einer ``libpsaf_msgs::msg::Obstacle`` Nachricht verpackt werden. Hierbei ist zu beachten, dass bei der zweiten Methode die übrigen Parameter nicht gesetzt werden.
+
+[source,cpp]
+----
+
+    void publishObstacle(libpsaf_msgs::msg::Obstacle & obstacle);
+
+    void publishObstacle(
+        geometry_msgs::msg::Vector3 & position, geometry_msgs::msg::Vector3 & size);
+
+    void publiscObstacle(
+      double posX, double posY, double posZ, double sizeX, double sizeY, double sizeZ,
+      int id, int type, int pos_in_scene, int velocity, int distance, int state);
+
+----
+
+**Subscriber**
+
+Um Nachrichten vom Typ ``libpsaf_msgs::msg::Obstacle`` zu empfangen, steht die folgende Funktion zur Verfügung.
+
+[source,cpp]
+----
+
+    void processObstacle(const libpsaf_msgs::msg::Obstacle::ConstPtr & p);
+
+----
+
+'''
+
+== `parking_detection/parking_spot`
+
+Diese Nachricht enthält Informationen über die Position und den Typ (parallel, rechtwinklig) eines detektierten Parkplatzes. Die Nachricht hat den Typ ``libpsaf_msgs::msg::ParkingSpot``. Für weitere Informationen siehe die Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf].
+
+[NOTE]
+Im Carolo Cup muss diese Nachricht nur in der ersten Disziplin verwendet werden. In Disziplin 2 (Rundkurs mit Hindernissen) muss NICHT eingeparkt werden.
+
+**Publisher**
+
+Zur Veröffentlichung der Nachricht steht die folgende Funktion zur Verfügung.
+
+[source,cpp]
+----
+    void publishParkingSpot(libpsaf_msgs::msg::ParkingSpot & parkingSpot);
+
+    void publishParkingSpot(
+  unsigned int type, geometry_msgs::msg::Point position);
+
+----
+
+
+**Subscriber**
+
+Um Nachrichten vom Typ ``libpsaf_msgs::msg::ParkingSpot`` zu empfangen, steht die folgende Funktion zur Verfügung.
+
+
+[source,cpp]
+----
+
+    void processParkingSpot(const libpsaf_msgs::msg::ParkingSpot::ConstPtr & p);
+
+----
+
+'''
+== `sign_detection/sign`
+
+Diese Nachricht enthält Informationen über ein erkanntes Schild. Sie ist vom Typ ``libpsaf_msgs::msg::Sign``. Für weitere Informationen siehe die Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf].
+
+[NOTE]
+Im Carolo Cup muss nur im MasterCup auf Schilder reagiert werden. Im BasisCup sind keine Verkehrszeichen vorhanden.
+
+Die `Sign` Nachricht enthält Informationen über die Position des Schildes sowie den Typ.
+
+**Publisher**
+
+Es stehen drei Methoden zur Verfügung, um die `Sign` Nachricht zu veröffentlichen. Falls nicht direkt die `libpsaf_msgs::msg::Sign` Nachricht verwendet werden soll, können die Parameter übergeben werden. Der Publisher baut die `libpsaf_msgs::msg::Sign` Nachricht dann aus den Parametern auf.
+
+[source,cpp]
+----
+
+    void publishSign(libpsaf_msgs::msg::Sign & sign);
+
+    void publishSign(
+      geometry_msgs::msg::Point position, int type);
+
+    void publishSign(double x, double y, double z, int type);
+
+----
+
+**Subscriber**
+
+Die Callbackmethode um `Sign` Nachrichten zu empfangen, lautet:
+
+[source,cpp]
+----
+
+    void processSign(const libpsaf_msgs::msg::Sign::ConstPtr & sign);
+
+----
+
+'''
+== `state_machine/state`
+
+Die `State` Nachricht enthält Informationen über den aktuellen Zustand der xref:_state_machinestate[StateMachine]. Die Nachricht ist als `enum` kodiert. Der Zustand sollte genutzt werden, um bestimmte Funktionen innerhalb der anderen Pakete zu aktivieren oder zu deaktivieren. Beispielsweise sollte die `ParkingSpotDetection` nur aktiv sein, wenn der Zustandsautomat im Zustand `PR_SEARCH` ist.
+
+*Publisher*
+
+Der Publisher kommt nur in der `StateMachine` zum Einsatz. Die Methode lautet:
+
+[source,cpp]
+----
+
+    void publishState(int state);
+
+----
+
+**Subscriber**
+
+Alle anderen Pakete besitzen einen Subscriber für die `State` Nachricht. Die Callback Methode lautet:
+
+[source,cpp]
+----
+
+    void updateState(const std_msgs::msg::Int64::ConstPtr & p);
+
+----
+
+'''
+== `status/status_info`
+
+Die StatusInfo Nachricht wird genutzt, um die `StateMachine` über bestimmte Ereignisse, beispielsweise das Überfahren der Startlinie, zu informieren. Die `StateMachine` löst, sofern es der aktuelle Zustand zulässt, einen Zustandswechsel aus. Hierfür besitzt die StateMachine Transition Guards, sodass unpassende StatusInfos (bspw. der Wunsch einen Parkplatz zu suchen während man an einer Haltelinie steht) ignoriert werden. Optimalerweise sollten die anderen Pakete jedoch so implementiert sein, dass falsche StatusInfos erst gar nicht veröffentlicht werden. Die Nachricht hat den Typ 'libpsaf_msgs::msg::StatusInfo'. Für weitere Informationen siehe die Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf].
+
+**Publisher**
+
+Der Publisher für die *StatusInfo* lautet:
+
+[source,cpp]
+----
+
+    void StatusInfoPublisher::publishStatus(libpsaf_msgs::msg::StatusInfo msg);
+
+----
+
+**Subscriber**
+
+Die Callbackmethode für die *StatusInfo* lautet:
+
+[source,cpp]
+----
+
+    void processStatus(libpsaf_msgs::msg::StatusInfo::SharedPtr status)
+
+----
+
+Aufgrund der Wichtigkeit der StatusInfos sind die möglichen StatusInfos nachfolgend aufgelistet:
+
+[source,idl]
+----
+
+# Status Codes
+uint8 STARTBOX_OPEN = 0                 # Detected opening of the start boxST
+uint8 UPHILL_START = 1                  # Beginn of uphill driving
+uint8 DOWNHILL_START = 2                # Beginn of Downhill driving  = end of uphill
+uint8 DOWNHILL_END = 3                  # end of downhill driving
+uint8 STOP_LINE_APPROACH = 4            # Stop-line detected
+uint8 STOP_LINE_REACHED = 5             # Stop_line reached
+uint8 CONTINUE_NO_OBJECT = 6            # Resume drive after wait time, no object
+uint8 WAIT_FOR_OBJECT =  7              # Wait for Object at Intersection
+uint8 OBJECT_DETECTED = 8               # Object detected
+uint8 PARKING_INTENT = 9                # Parking intent = Startline detected
+uint8 PARKING_TIMEOUT = 10              # No parking spot found
+uint8 PARALLEL_FOUND = 11               # Parallel Parking Spot found
+uint8 PERPENDICULAR_FOUND = 12          # Perpendicular parking spot found
+uint8 PARKING_FINISHED  = 13            # Successfully parked in the spot
+uint8 PARKING_FAILED  = 14              # Parking failed
+uint8 PARK_TIME_REACHED = 15            # Parked, wait for time to pass
+uint8 BACK_ON_LANE = 16                 # Returned to lane
+uint8 STATIC_OBSTACLE = 17              # Static obstacle detected in front of car
+uint8 DYNAMIC_OBSTACLE = 18             # Dynamic obstacle in lane detected
+uint8 OVERTAKE_POSSIBLE = 19            # Overtaking possibility detected
+uint8 PASSED_OBSTACLE = 20              # Obstacle has been passed
+uint8 OVERTAKE_FINISHED = 21            # Returned to correct lane
+uint8 OVERTAKE_ABORT = 22               # Abort Overtaking attempt
+uint8 MANUAL_MODE_ENTER = 23            # Enter Manual Mode
+uint8 MANUAL_MODE_EXIT = 24             # Exit Manual Mode
+uint8 WATCHDOG_TIMEOUT = 25             # Timeout issued by the watchdog
+
+----
+
+'''
+== `trajectory/trajectory`
+
+Diese Nachricht enthält Informationen über die aktuelle Trajektorie. Sie ist vom Typ 'libpsaf_msgs::msg::Trajectory'. Für weitere Informationen siehe die Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf]. Die Trajectory Nachricht selbst enthält die Punkte der Trajektorie, die das Auto abzufahren hat.
+
+**Publisher**
+
+Die Publisher Methoden für die ``Trajectory`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void publishTrajectory(libpsaf_msgs::msg::Trajectory & trajectory);
+
+    void publishTrajectory(std::vector<geometry_msgs::msg::Point> points)
+
+----
+
+**Subscriber**
+
+Die Callbackmethode für die ``Trajectory`` lautet:
+
+[source,cpp]
+----
+
+    void processTrajectory(libpsaf_msgs::msg::Trajectory::SharedPtr p);
+
+----
+
+'''
+== `watchdog/error_message`
+
+Die Watchdog Message wird genutzt, um die StateMachine über Fehler im System zu informieren. Sie hat den Typ `libpsaf_msgs::msg::Error`. Hierbei wird zwischen 3 Levels unterschieden:
+
+. FINE = 0 : Alles in Ordnung
+. WARNING = 1 : Warnung bei nicht kritischem Fehler
+. ERROR = 2 : Fehler im System, beispielsweise ein Ausfall der Kamera
+
+**Publisher**
+
+Die Publisher Methode für die ``watchdog/error_message`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void publishErrorMessage(libpsaf_msgs::msg::Error & errorMessage);
+
+    void publishErrorMessage(int type, std::string info_text);
+----
+
+'''
+== `*uc_bridge Nachrichten*`
+
+Die nachfolgenden Nachrichten stehen alle in Verbindung mit der UC Bridge. Hierbei handelt es sich um Nachrichten, die Messwerte der Sensoren beinhalten oder Steuerungsbefehle für das Fahrzeug. Diese Art der Nachrichten hat im Workspace entweder nur einen Publisher(falls die Nachricht von der `uc_bridge` empfangen wird) oder nur einen Subscriber(falls die Nachricht von der `uc_bridge` gesendet wird). Mehr Informationen über die UC Bridge können https://git-ce.rwth-aachen.de/af/psaf_ucbridge[hier] gefunden werden.
+
+'''
+`uc_bridge/button`
+
+Die Button-Nachricht wird von der uc_bridge ausgesendet. Der Default-Wert ist -1. Sobald ein Knopf gedrückt wird, wird der Wert auf den Button-Code gesetzt und bleibt auf diesem Wert, auch wenn der Knopf nicht mehr gedrückt wird. Über den Wert des Knopfes wird die Disziplin ausgewählt.
+
+[NOTE]
+Beim PSAF 1 Auto sind keine Knöpfe vorhanden. Der Knopfdruck muss entsprechend simuliert werden. Beispielsweise durch manuelles Publishen auf dem Topic. Ohne Knopfdruck wird die StateMachine den Zustand `STARTBOX` nicht verlassen.
+
+*Subscriber*
+
+Die Subscriber Methode für die ``uc_bridge/button`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void processButton(std_msgs::msg::Int8::SharedPtr p);
+
+----
+
+'''
+`uc_bridge/get_speed`
+
+Diese Nachricht enthält die vom Fahrzeug gemessene Geschwindigkeit in cm/s. Beim PSAF 1 Auto wird die Geschwindigkeit über einen Hallsensor am linken hinteren Rad gemessen, beim PSAF 2 Fahrzeug wird die Geschwindigkeit über einen Inkrementalgeber an der Kardanwelle gemessen.
+
+*Subscriber*
+
+Die Subscriber Methode für die ``uc_bridge/get_speed`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void updateSpeed(std_msgs::msg::Int16::SharedPtr p);
+
+----
+
+'''
+
+`uc_bridge/get_steering`
+
+Diese Nachricht enthält den vom Fahrzeug gemessenen Lenkwinkel in 1/10 Grad.
+
+[NOTE]
+Die Fahrzeuge sind derzeit nicht in der Lage den Lenkwinkel zu messen. Deswegen wird stattdessen der angefragte Lenkwinkel zurückgesendet.
+
+*Subscriber*
+
+Die Subscriber Methode für die ``uc_bridge/get_steering`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void updateSteering(std_msgs::msg::Int16::SharedPtr p);
+
+----
+
+'''
+
+`uc_bridge/light`
+
+Diese Nachricht wird genutzt, um die Lichter am PSAF 2 Auto zu steuern. Beispielsweise können so die Bremslichter, Blinker und Warnblinker an- und ausgeschaltet werden. Beim PSAF 1 Auto wird diese Nachricht ignoriert, da das Fahrzeug keine Lichter hat. Eine ausführliche Dokumentation inkl. der Zuweisung der Lichter kann in der Dokumentation der https://git-ce.rwth-aachen.de/af/library[libpsaf] gefunden werden.
+
+*Publisher*
+
+Die Publisher Methode für die ``uc_bridge/light`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void publishLight(int light)
+
+    void publishLight(std_msgs::msg::Int8 light)
+----
+
+'''
+
+`uc_bridge/manual_signals`
+
+Diese Nachricht wird von der uc_bridge gesendet, wenn das Fahrzeug in manuellen Modus ist. Manuelles Fahren erfolgt durch eine Fernsteuerung und wird nur vom PSAF 2 Auto unterstützt.
+
+*Subscriber*
+
+Die Subscriber Methode für die ``uc_bridge/manual_signals`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void processManualSignals(std_msgs::msg::UInt8::SharedPtr p);
+----
+
+'''
+`uc_bridge/set_motor_level`
+
+Diese Nachricht ist ein Sonderfall. Beim Erzeugen des Publishers wird der erste Teil des Topic-Namen `set_motor_level` angegeben. Der Publisher baut aus diesem die beiden Topics `uc_bridge/set_motor_level_forward` und `uc_bridge/set_motor_level_backward` auf. DIe Publisher Methode erwartet Geschwindigkeiten zwischen  -200 und 200 cm/s. Intern wird diese Geschwindigkeit in das Motorlevel umgerechnet und je nach Fahrtrichtung auf dem entsprechenden Topic gesendet.
+
+*Publisher*
+
+Die Publisher Methode für die ``uc_bridge/set_motor_level`` Nachricht lauten:
+
+[source,cpp]
+----
+
+    void publishSpeed(int speed)
+
+----
+
+'''
+`uc_bridge/set_steering`
+
+Diese Nachricht wird genutzt, um den Lenkwinkel des Fahrzeugs zu setzen. Hierbei können die Werte entweder als 1/10 Grad oder als 1/100 rad angegeben werden. Eine entsprechende Flag in der Methode gibt an, in welchem Format die Werte übergeben werden. Die Umrechnung auf einen Lenkwinkel erfolgt in der `uc_bridge`. Es ist zu beachten, dass das PSAF 1 einen maximalen Lenkwinkel von -30 bis 30 Grad hat, das PSAF 2 einen maximalen Lenkwinkel von - 45 bis 45 Grad. Negative Werte bewirken ein Lenkausschlag in Fahrrichtung rechts.
+
+*Publisher*
+
+Die Publisher Methode für die ``uc_bridge/set_steering`` Nachricht lautet:
+
+[source,cpp]
+----
+
+    void publishSteering(int value, bool rad)
+----
+
+'''
+`uc_bridge/us_<pos>`
+
+Diese Nachricht wird genutzt, um die Messwerte der Ultraschallsensoren zu empfangen. Der Zusatz `<pos>` gibt an, wo sich der Sensor am Fahrzeug befindet. DIe Messwerte liegen in cm vor.
+
+Mögliche Position am PSAF 1 Auto sind:
+
+- us_front_center
+- us_mid_right
+- us_mid_left
+
+Beim PSAF 2 Auto sind zusätzlich die folgenden Sensoren verfügbar:
+
+ - us_front_left
+ - us_front_right
+ - us_rear_left
+ - us_rear_right
+ - us_rear_center
+
+*Subscriber*
+
+Die Subscriber Methode für die ``uc_bridge/us_<pos>`` ist nachfolgend aufgeführt. `int sensor` gibt hierbei die Position des Topics im Topic Vector an. Die Definition hiervon ist im Paket `psaf_configuration` enthalten.
+
+[source,cpp]
+----
+
+    void updateSensorValue(sensor_msgs::msg::Range::SharedPtr p, int sensor)
+----

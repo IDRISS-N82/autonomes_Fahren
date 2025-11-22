@@ -1,0 +1,327 @@
+= Setup
+:toclevels: 1
+
+Für die Entwicklung wird https://docs.ros.org/en/foxy/Installation.html[ROS2 Foxy] auf Ubuntu 20.04 verwendet. In diesem Abschnitt wird die Installation der benötigten Pakete auf Ubuntu erklärt, sowie der Setup Prozess für die Entwicklung unter Windows erklärt.
+
+== Ubuntu Installation
+=== Windows Host
+
+Die direkte Entwicklung von ROS Anwendungen unter Windows ist möglich, führt aber oftmals zu Problemen und ungewolltem Verhalten. Aus diesem Grund werden zwei Alternativen vorgestellt. Die Entwicklung mit einer VM oder und dem Windows Subsystem for Linux.
+
+==== VM
+
+Die Entwicklung in einer Virtual Machine (VM) ermöglicht es, trotz Windows OS, mit Ubuntu zu arbeiten. Es sei angemerkt, dass die Performance der VM eingeschränkt sein kann und es vor allem bei der Nutzung einer Kamera  zu Bandbreiten und Verbindungsproblemen kommen kann. In diesem Tutorial wird die Einrichtung der VM mit https://www.virtualbox.org/[Oracle VirtualBox] erläutert. Der https://www.vmware.com/de/products/workstation-player/workstation-player-evaluation.html[VMWare Player] kann ebenfalls verwendet werden, jedoch wird hierfür keine Installationsanleitung bereitgestellt.
+
+==== Automatisches Erstellen des VM Images
+
+Im Repository https://git-ce.rwth-aachen.de/af/images[Images] sind Scripte zu finden, um automatisiert ein eingerichtetes VM Image zu erstellen. Ausführlichere Informationen zu den verwendeten Paketen und den Installationsscripten kann in der https://git-ce.rwth-aachen.de/af/images/-/blob/master/docs/Entwicklerdokumentation/Entwicklerdokumentation.adoc[Dokumentation] des `images` Repo gefunden werden.
+Im Folgenden ist eine Schnellanleitung beschrieben.
+
+. https://www.virtualbox.org/wiki/Downloads[VirtualBox] installieren.
+. Klonen des `Image` Repositorys
+
+    git clone https://git-ce.rwth-aachen.de/af/images
+
+. https://www.packer.io/downloads[Packer] für Windows herunterladen und entpacken
+. Die Datei `packer.exe` in den zuvor geklonten `image` Ordner kopieren.
+. Öffnen der Windows Eingabeaufforderung (`WIN+R` -> `cmd`) oder der Windows Powershell (`WIN+R` -> `powershell`).
+. In den `image` Ordner navigieren.
+
+    cd <path/to/folder/images>
+
+Falls der `images` Ordner im `Downloads` Order liegt, ost der Befehl
+
+    $ cd %HOMEPATH%/Downloads
+
+Anschließend müssen die folgende Scripte in der genannten Reihenfolge ausgeführt werden.
+
+. Installieren des Ubuntu 20.04 Server Image in einer VM. Dieser Prozess kann einige Zeit in Anspruch nehmen.
+
+    $ packer build ubuntu.json        # cmd
+    $ ./packer.exe build ubuntu.json  # powershell
+
+. Installieren des VB-GuestAdditions Add-on sowie der Ubuntu Gnome Desktopumgebung
+
+    # installation der role aus ansible-galaxy
+    $ ansible-galaxy install PeterMosmans.virtualbox-guest
+    # installation des desktops
+    $ packer build desktop.json
+
+. Abschließend muss noch ROS installiert werden:
+
+    packer build ros.json
+
+---
+
+==== Manuelle Einrichtung der VM
+
+In der VM muss eine Linux Distribution installiert werden. Zu empfehlen sind https://ubuntu.com/download/desktop[Ubuntu 20.04] oder https://xubuntu.org/news/xubuntu-20-04-released/[XUbuntu 20.04]. `XUbuntu` ist in der Regel etwas schneller in der Ausführung.
+
+1. Herunterladen von https://ubuntu.com/download/desktop/thank-you?version=20.04.3&architecture=amd64[Ubuntu 20.04] oder https://xubuntu.org/download/[XUbuntu 20.04]
+
+2. Herunterladen von https://www.oracle.com/virtualization/technologies/vm/downloads/virtualbox-downloads.html#vbox[Oracle VM Virtual Box] oder https://www.vmware.com/de/products/workstation-player/workstation-player-evaluation.html[VMWare Player].
+
+3. Öffnen von Virtual Box
+
+4. Erstellen einer neuen virtuellen Maschine
+
+. Auf "Neu" klicken
+. Eingabe von Name und Speicherort der VM. WICHTIG: Unbedingt *Linux* als Typ und *Ubuntu* bei Version auswählen.
+. Im folgenden Dialog müssen zunächst die Parameter `Speichergröße` und `Virtuelle Festplattengröße` festgelegt werden
+. Festlegung der übrigen Parameter. Hierzu die zuvor erstellte VM in in der Liste auswählen und dann auf `Ändern klicken.` Eine Übersicht über alle Parameter ist in xref:vmparam[Tabelle 1] dargestellt.
+
+
+5. Starten der VM. In dem geöffneten Fenster "Medium für Start auswählen" muss jetzt de zuvor heruntergeladene Ubuntu oder XUbuntu `.iso` Datei ausgewählt werden.
+
+6. Auswählen von ``Install Ubuntu``. Im InstallWizard müssen folgende Schritte durchgeführt werden:
+. Auswählen von Install Ubuntu und `continue`
+. Auswahl des korrekten Tastaturlayouts. Am einfachsten geht das über die `Detect Keyboard` Funktion. Danach `continue`
+. (Nur bei Ubuntu) `minimal installation` und `continue`
+. `erase disk and install ubuntu`.
+. `Jetzt installieren` -> `continue`
+. Im Menü `Who are you` müssen die Felder ausgefüllt werden. Als Benutzername sollte `psaf`, als Passwort `letmein` gewählt werden.
+
+7. Nach der Installation ein Terminal öffnen (``Strg + ALT + T``) und folgenden Befehl ausführen:
+
+    sudo apt-get update && sudo apt-get upgrade
+
+Falls das Fenster in der VM nur sehr klein dargestellt wird, können folgende Schritte ausgeführt werden, um es an die Displaygröße anzupassen:
+
+Für Ubuntu:
+
+. Terminal öffnen (`Strg + Alt + T`)
+. Ausführen von:
+
+    sudo apt-get update
+    sudo apt-get install build-essential gcc make perl dkms
+    reboot
+
+. Nach dem Neustart im Menü von Virtualbox auf "Geräte" -> "Gasterweiterungen einlegen" klicken
+. Der Installationswizard öffnet sich automatisch. Diesem muss gefolgt werden.
+. Neustart.
+
+Für XUbuntu:
+
+1. Terminal öffnen (`Strg + Alt + T`)
+2. Ausführen von:
+
+    sudo apt-get update
+    sudo apt-get install build-essential gcc make perl dkms
+    reboot
+
+3. Nach dem Neustart im Menü von Virtualbox auf "Geräte" -> "Gasterweiterung einlegen" klicken.
+4. Termin öffnen und ausführen von:
+
+    sudo /media/psaf/<guest_addition_version>/VBoxLinuxAdditions.run
+
+5. Neustart
+
+---
+
+.Parameter der VM
+[[vmparam]]
+|===
+|*Parameter* | *Wert*
+|Speichergröße | 4096 MB
+|Virtuelle Festplattengröße | 40 GB
+|Prozessoren | 2
+|Grafikspeicher | 128 MB
+| USB | USB-3.0 Controller
+|===
+
+Anschließend müssen die benötigten Pakete installiert werden. Dies ist im Abschnitt xref:_einrichtung[Einrichtung] beschrieben.
+
+=== WSL
+
+Das https://docs.microsoft.com/en-us/windows/wsl/about[Windows Subsystem für Linux] (WSL) ermöglicht es, ein Linux Subsystem in die Windows Umgebung zu integrieren und mit diesem zu interagieren. Der Vorteil von WSL ist, dass der typische Overhead, der bei Verwendung von VMs anfällt, nicht existiert.
+Um WSL nutzen zu können muss mindestens Windows 10, Version 2004 installiert sein. Die Installationsanleitung ist https://docs.microsoft.com/en-us/windows/wsl/install[hier] zu finden.
+Nach der Installation muss noch Ubuntu 20.04 aus dem https://www.microsoft.com/store/productId/9N6SVWS3RX71[Microsoft Store] installiert werden. Die Interaktion mit Ubuntu erfolgt dann entweder über das Terminal (Ubuntu 20.04 in die Suchleiste eingegeben) oder direkt über die IDE. Um die WSL in die IDE zu integrieren, stellen https://www.jetbrains.com/help/clion/how-to-use-wsl-development-environment-in-product.html[CLion] und https://code.visualstudio.com/docs/remote/wsl[VSCode] Tutorials zur Verfügung.
+
+Nach der erfolgreichen Installation von Ubuntu müssen noch die benötigten Pakete installiert werden. Dies ist im Abschnitt xref:_einrichtung[Einrichtung] beschrieben.
+
+== Auto Installation
+
+Die Autos sind bei Übergabe an die Studierenden fertig eingerichten. Sollte es dennoch erforderlich sein das Auto neu aufzusetzen, können folgende Schritte befolgt werden.
+
+Die Installation auf dem Auto erfolgt durch ein fertiges Script. Dieses Script ist https://git-ce.rwth-aachen.de/af/images[Images Repo] zu finden. Hierfür einfach das Repo klonen und den Befehl
+
+    ./scripts/install-car.sh
+
+ausführen. Mehr Informationen sind in der https://git-ce.rwth-aachen.de/af/images/-/blob/master/docs/Entwicklerdokumentation/Entwicklerdokumentation.adoc[Dokumentation] des Repos zu finden.
+
+Zur Installation der benötigten Pakete bitte dem Abschnitt xref:_einrichtung[Einrichtung] folgen.
+
+== Einrichtung
+
+=== Installation benötigter Pakete
+
+[NOTE]
+__Dieser Schritt entfällt bei Verwendung der eingerichteten VM und beim Auto, da hierbei die Pakete direkt installiert wurden.__
+
+Um mit der Entwicklung beginnen zu können, müssen zunächst einige benötigte Pakete installiert werden. Hierfür stehen wieder zwei Möglichkeiten zur Verfügung:
+
+---
+==== Automatische Installation
+
+Das Repository https://git-ce.rwth-aachen.de/af/images/[Images] stellt ein Installationsscript für die Einrichtung bereit. Eine Anleitung kann im Repository gefunden werden.
+
+'''
+==== Manuelle Installation
+
+*ROS 2 Foxy*
+
+Die Installation von ROS2 Foxy ist am einfachsten als Binary Paket. Hierfür einfach der https://docs.ros.org/en/foxy/Installation/Ubuntu-Install-Debians.html[Anleitung] folgen.
+
+Nach der Installation sollte ROS noch in der `bashrc` Datei gesourced werden, damit dies nicht jedes Mal, wenn ein neues Terminal geöffnet wird, geschehen muss.
+
+    gedit ~/.bashrc
+
+Am Ende des Editors dann folgendes einfügen:
+
+    source /opt/ros/foxy/setup.bash
+
+Nach der Eingabe muss das Terminal dann neu gestartet werden oder der Befehl
+
+    source ~/.bashrc
+
+eingegeben werden. Dies ist nötig, damit ROS2 Foxy im Terminal verwendet werden kann.
+
+'''
+*Realsense Kamera*
+
+Für die Installation der Realsense Abhängigkeiten kann der folgende Befehl genutzt werden:
+
+    sudo apt-get install ros-foxy-realsense2-camera
+
+'''
+*libpsaf*
+
+Die https://git-ce.rwth-aachen.de/af/library/[libpsaf] bildet die Grundlage für die Entwicklung. Sie stellt die benötigten Interfaces, Subscriber und Publisher bereit. Die Installation kann mittels eines Debian Pakets oder manuell durchgeführt werden.
+
+*Installation mittels Debian Paket*
+
+. Download der Pakete für die `libpsaf` (ros-foxy-libpsaf_2.0.3-0focal_amd64.deb) und der `libpsaf_msgs`(ros-foxy-libpsaf-msgs_2.0.3-0focal_amd64.deb) aus dem https://git-ce.rwth-aachen.de/af/library/-/releases[Release] Abschnitt des Repository. Falls es bereits eine neuere Version der `libpsaf` gibt, ist diese zu wählen.
+. Installation der Pakete:
+
+    sudo dpkg -i ros-foxy-libpsaf-msgs_3.0.1-0focal_amd64.deb
+    sudo dpkg -r ros-foxy-libpsaf_3.0.1-0focal_amd64.deb
+
+[WARNING]
+Die `libpsaf_msgs` müssen vor der `libpsaf` installiert werden.
+
+*Manuelle Installation*
+
+Falls eine bestimmte Version der `libpsaf` benötigt wird oder die automatische Installation fehlschlägt, kann die `libpsaf` auch manuell installiert werden.
+
+. Klonen des https://git-ce.rwth-aachen.de/af/library[Libpsaf] Repositorys
+
+    git clone https://git-ce.rwth-aachen.de/af/library.git
+
+. Installation der library
+
+    cd ~/library
+    colcon build --symlink install
+
+. Source der Installation
+
+    source install/local_setup.bash
+
+Falls die `libpsaf` nicht jedes Mal beim Öffnen einer Konsole erneut gesourced werden soll, kann dies auch über die bashrc Datei gemacht werden.
+
+    echo "source ~/library/install/local_setup.bash" >> ~/.bashrc
+
+*uc_bridge*
+
+Die https://git-ce.rwth-aachen.de/af/psaf_ucbridge[uc_bridge] wird für die Kommunikation zwischen dem Hauptrechner und dem https://git-ce.rwth-aachen.de/af/ucboard[uc_board] benötigt. Die Installation kann mittels Debian Paket oder manuell erfolgen.
+
+*Installation mittels Debian Paket*
+
+. Download der Pakete für die `uc_bridge` (ros-foxy-psaf-ucbridge_2.1.1-0focal_amd64.deb) und der `ucbridge_msgs`(ros-foxy-psaf-ucbridge-msgs_2.1.1-0focal_amd64.deb) aus dem https://git-ce.rwth-aachen.de/af/psaf_ucbridge/-/releases[Release] Abschnitt des Repository. Falls es bereits eine neuere Version der `uc_bridge` gibt, ist diese zu wählen.
+. Installation der Pakete:
+
+    sudo dpkg -i ros-foxy-psaf-ucbridge-msgs_2.1.1-0focal_amd64.deb
+    sudo dpkg -r ros-foxy-psaf-ucbridge_2.1.1-0focal_amd64.deb
+
+[WARNING]
+Die `ucbridge_msgs` müssen vor der `uc_bridge` installiert werden.
+
+*Manuelle Installation*
+
+Falls eine bestimmte Version der `uc_bridge` benötigt wird oder die automatische Installation fehlschlägt, kann die `uc_bridge` auch manuell installiert, werden.
+
+. Klonen des https://git-ce.rwth-aachen.de/af/psaf_ucbridge[uc_bridge] Repositorys
+
+    git clone https://git-ce.rwth-aachen.de/af/psaf_ucbridge.git
+
+. Installation der psaf_ucbridge
+
+    cd psaf_ucbridge
+    colcon build --symlink install
+
+. Sourcen der Installation
+
+    source install/local_setup.bash
+
+Das sourcen kann erneut in der bashrc Datei gemacht werden.
+
+    echo "source ~/psaf_ucbridge/install/local_setup.bash" >> ~/.bashrc
+
+== Entwicklungsumgebung
+=== Clion
+
+CLion ist eine C/C++ IDE von JetBrains, die ROS2 unterstützt. CLion kann mit der Windows WSL genutzt werden. Die Anwendung ist für Studierende kostenfrei. Die Registrierung um eine kostenfreie Lizenz zu bekommen erfolgt https://www.jetbrains.com/community/education/#students[hier].
+
+Nach der erfolgreichen Installation muss der Workspace geöffnet werden. Anschließend kann CLion eingerichtet werden:
+
+==== Installation der PlugIns:
+
+1. "File" -> "Setting" ->"PlugIns". Folgende PlugIns sollten ausgewählt werden:
+
+- AsciiDoc
+- ROS Support
+- (Kite) hilfreiche Erweiterung für Codevervollständigung
+
+2. Falls eine WSL genutzt wird, müssen folgende Schritte durchgeführt werden:
+
+==== Verbindung mit WSL
+
+Dieser Schritt ist bei Verwendung auf dem Auto oder innerhalb der VM nicht nötig.
+
+1. "File" -> "Settings" -> "Build, Execution, Deployment" -> "Toolchain"
+2. WSL an Anfang der Liste stellen
+
+Eine ausführliche Anleitung gibt es auch auf der Website von https://www.jetbrains.com/help/clion/how-to-use-wsl-development-environment-in-product.html#wsl-tooclhain[Clion/JetBrains]
+
+Zum Ausführen von Code in der WSL in CLion muss ein neues Terminal geöffnet werden. Über die Terminal-Auswahlleiste muss "Ubuntu 20.04" ausgewählt sein.
+
+
+=== Visual Studio Code
+
+Visual Studio Code ist eine Alternative zu CLion und unter Linux, Windows und Mac ausführbar. VsCode besitzt ebenfalls hilfreiche PlugIns für die Entwicklungen im Rahmen dieses Seminars.
+
+==== Installation der PlugIns
+
+Die PlugIn Installation erfolgt direkt in VsCode, indem man auf im Bild markierte Symbol klickt.
+Folgende Plugins sollten installiert werden:
+
+- AsciiDoc
+- ROS
+- (Kite) - hilfreiche Erweiterung für Code Vervollständigung
+
+image::vsCodePlugIn.png[]
+
+==== Verbindung mit WSL
+
+Um Code mit WSL ausführen zu können, müssen folgende Schritte ausgeführt werden:
+
+1. Installation des https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack[Remote Development Extension Packs]
+2. Workspace in VSCode öffnen
+3. Das Symbol in der linken unteren Ecke klicken (siehe Bild)
+4. "Open Folder in WSL" auswählen und kurz warten.
+
+Eine ausführliche Anleitung findet sich https://code.visualstudio.com/docs/remote/wsl[hier]
+
+Zum Ausführen von Code in der WSL in VSCode muss ein neues Terminal geöffnet werden. Über die Terminal-Auswahlleiste muss "Ubuntu 20.04 (WSL)" ausgewählt sein.
+
+image::vsCodeWSL.png[]
+

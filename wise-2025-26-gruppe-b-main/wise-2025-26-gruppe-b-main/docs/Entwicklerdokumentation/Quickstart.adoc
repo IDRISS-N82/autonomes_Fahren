@@ -1,0 +1,51 @@
+= Schnelleinstieg
+:toclevels: 1
+
+In diesem Abschnitt wird ein beschleunigter Einstieg beschrieben. Hierfür sind die wichtigsten Schritte kompakt zusammen gefasst. Es wird dennoch empfohlen, die komplette Dokumentation zu lesen und die vorhandenen Pakete zu verstehen.
+Für den Schnelleinstieg wird davon ausgegangen, dass sowohl die ``libpsaf``, die `uc_bridge` sowie https://docs.ros.org/en/foxy/Installation.html[`ROS2 Foxy`] bereits installiert sind.
+
+== Installation und Setup
+
+Zunächst muss der Standard-Workspace heruntergeladen und gebaut werden.
+
+    git clone https://git-ce.rwth-aachen.de/af/ws-template
+
+[NOTE]
+Der im Befehl genannte Link kann auch anders sein, falls mit dem dedizierten Carolo Cup Workspace gearbeitet wird. In diesem Fall muss stattdessen aus folgendem Repository heruntergeladen werden: https://git-ce.rwth-aachen.de/af/cc/cc-ws
+
+== Konfiguration
+
+Nachdem Download sollte zunächst die Konfiguration geprüft und gegegebenenfalls angepasst werden. Hierzu muss die Datei `src/psaf_configuration/include/psaf_configuration/configuration.hpp` geöffnet werden. Insbesondere muss darauf geachtet werden, dass die Flag für das verwendete Auto korrekt gesetzt ist.
+
+== Bauen
+Nachdem die Konfiguration geprüft wurde, muss der Workspace gebaut werden:
+
+    cd ws-template/
+    colcon build
+
+Falls es beim Bauen zu Fehlern kommt, bitte das Kapitel xref:Faq.adoc[FAQ] beachten.
+
+
+== Ausführung
+
+Nach der Installation muss der Workspace erst gesourced werden, bevor die Software ausgeführt werden kann.
+
+    source install/setup.bash
+
+Dieser Befehl muss jedes Mal erneut ausgeführt werden, wenn ein neues Terminal geöffnet wird. Alternativ kann der Befehl auch in die `~/.bashrc` Datei eingetragen werden.
+
+Zum Starten eines Pakets muss das entsprechende Launchfile ausgeführt werden.
+
+    ros2 launch <package_name> <launchfile_name>
+
+Am Beispiel der Spurerkennung:
+
+    ros2 launch psaf_lane_detection lanedeteection.launch.py
+
+[IMPORTANT]
+Zum Starten eines Pakets bitte immer das entsprechende Launchfile ausführen. Bei Verwendung des Befehls ros2 run <package_name> <node_name> kann es zu Fehlern kommen.
+
+Um alle Pakete auf einmal zu starten, können die Launchfiles aus dem Ordner `psaf_launch` ausgeführt werden.
+
+    ros2 launch psaf_launch main_psaf1.launch.py  # Für das PSAF 1 Fahrzeug
+    ros2 launch psaf_launch main_psaf2.launch.py  # Für das PSAF 2 Fahrzeug

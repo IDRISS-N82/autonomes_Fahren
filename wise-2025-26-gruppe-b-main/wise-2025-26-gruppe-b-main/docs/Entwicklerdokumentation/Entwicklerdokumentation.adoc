@@ -1,0 +1,45 @@
+= Entwicklerdokumentation für den Standard-Workspace
+:icons: font
+:compat-mode!:
+:toc: left
+:toclevels: 2
+:imagesdir: ./images/
+
+Diese Dokumentation enthält Informationen über den Workspace für das PSAF 1 und 2 sowie für die Teilnahme am Carolo Cup. Die Dokumentation ist wie folgt aufgebaut:
+
+Im Abschnitt xref:Motivation.adoc[Motivation] wird zunächst beschrieben, warum ein allgemeiner Ausgangspunkt für die Entwicklung essenziell ist.
+
+Anschließend werden xref:Allgemein.adoc[allgemeine Informationen] über die Seminare sowie über den Carolo Cup gegeben.
+
+Im Abschnitt xref:Quickstart.adoc[Schnelleinstieg] ist beschrieben, wie am schnellsten mit der Entwicklung begonnen werden kann. Um den Schnelleinstieg verwendet zu können, muss bereits eine fertig eingerichte Entwicklungsumgebung vorhanden sein.
+
+Im Abschnitt xref:Workspace.adoc[Workspace] werden die einzelnen Pakete sowie deren Kommunikationsschnittstellen erläutert.
+
+Im Abschnitt xref:Parameter.adoc[Parameter] wird die gezeigt, wie Parameter genutzt werden können, um das Verhalten einzelner Nodes während der Laufzeit zu ändern. Diese Funktionalität ist bereits beispielhaft im Paket `Spurerkennung` implementiert.
+
+Die ausgetauschten Nachrichten werden im Abschnitt xref:Nachrichten.adoc[Nachrichten] beschrieben.
+
+Im darauf folgenden Kapitel xref:Statemachine.adoc[State Machine] wird der im Rahmen dieses Projekts verwendete Zustandsautomat vorgestellt. Der Zustandsautomat ist bereits fertig implementiert und muss für die Regelung des Kontrollflusses genutzt werden.
+
+Im Kapitel xref:Testen.adoc[Testen] wird zunächst eine allgemeine Übersicht über die Rahmen dieser Arbeit verwendeten Testarten gegeben. Daran anschließend folgt die Beschreibung der bereits implementierten Test für die jeweiligen Pakete.
+
+Das Kapitel xref:Setup.adoc[Setup] stellt eine Installationsanleitung sowie eine Anleitung zum Starten des Workspace zur Verfügung.
+
+Im Abschnitt xref:Faq.adoc[FAQ] werden Fragen und Antworten zu den Paketen bereitgestellt sowie Lösungen für die häufigsten Probleme aufgezeigt.
+
+[WARNING]
+Die Dokumentation befindet sich derzeit in der Entwicklung. Die Studierenden müssen die Dokumentation ergänzen, falls Änderungen oder Erweiterungen durchgeführt worden sind. Dies gilt insbesondere für das Hinzufügen neuer Testfälle.
+
+[IMPORTANT]
+Für mehr Informationen über Nachrichtentypen sowie die allgemeine Struktur kann die https://git-ce.rwth-aachen.de/af/library[Dokumentation der libpsaf] herangezogen werden.
+
+include::Motivation.adoc[leveloffset=1]
+include::Allgemein.adoc[leveloffset=1]
+include::Quickstart.adoc[leveloffset=1]
+include::Workspace.adoc[leveloffset=1]
+include::Parameter.adoc[leveloffset=1]
+include::Nachrichten.adoc[leveloffset=1]
+include::Statemachine.adoc[leveloffset=1]
+include::Testen.adoc[leveloffset=1]
+include::Setup.adoc[leveloffset=1]
+include::Faq.adoc[leveloffset=1]

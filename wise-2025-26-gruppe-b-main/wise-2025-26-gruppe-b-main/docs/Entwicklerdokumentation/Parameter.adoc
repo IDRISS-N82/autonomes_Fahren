@@ -1,0 +1,46 @@
+= Parameter
+:toclevels: 1
+
+ROS unterstützt den Einsatz sogenannter Parameter. Die Parameter können während der Laufzeit durch einen Befehl im Terminal verändert werden. Dies kann beispielsweise dafür genutzt werden, um bestimmte Grenzwerte dynamisch während der Laufzeit zu verändern, ohne das Projekt neu bauen zu müssen. Der bereitgestellte Workspace enthält im Paket `Spurerkennung` ein Beispiel, wie die Parameter Funktionalität in einer Node realisiert werden kann.
+
+Im gezeigten Beispiel wird der Parameter `use_secondary_algorithm` genutzt, um zwischen zwei Spurerkennungsalgorithmen zu wechseln. Dies kann für die objektive Bewertung der Algorithmen verwendet werden.
+
+Im ersten Schritt muss der Parameter im Konstruktor deklariert werden.
+
+```cpp
+
+    ...
+    this->declare_parameter("use_secondary_algorithm", false);
+    ...
+
+```
+
+Zur Abfrage des Wertes muss die folgende Zeile in den Code eingefügt werden:
+
+```cpp
+
+    ...
+    bool use_secondary_algorithm = this->get_parameter("use_secondary_algorithm").as_bool();
+    ...
+
+```
+
+Das Typecasting am Ende ist notwendig, damit der Parameter als bool interpretiert wird. Falls ein anderer Datentyp als bool verwendet werden soll, muss entsprechend das passende Typecasting eingefügt werden.
+
+Um den Parameter während der Laufzeit zu verändern wird der folgende Befehl verwendet:
+
+```bash
+
+    ros2 param set <class_name> <parameter_name> <value>
+
+```
+
+Am Beispiel der `LaneDetectionNode` lautet der Befehl wie folgt:
+
+```bash
+
+    ros2 param set /lane_detection use_secondary_algorithm true
+
+```
+
+Mehr Informationen über die Verwendung von Parametern kann der https://ftp.osuosl.org/pub/ros/ros_docs_mirror/en/foxy/How-To-Guides/Using-ros2-param.html#ros2-param-set[ROS2 Dokumentation] entnommen werden.

@@ -1,0 +1,21 @@
+= Motivation
+:toclevels: 1
+
+Die Projektseminare "Autonomes Fahren 1"  (PSAF 1) und "Autonomes Fahren 2" (PSAF 2) werden jedes Semester im Wechsel gehalten. Im PSAF 1 werden die grundlegenden Softwarepakete für ein autonomes Modellauto erarbeitet und von den verschiedenen Gruppen implementiert. Dies beinhaltet eine Fahrbahnerkennung, einen Einparkvorgang, die Regelung des Fahrzeugs sowie eine Hinderniserkennung. Im Seminar PSAF 2 werden diese Ergebnisse weiterverwendet und für das leistungsstärkere Wettkampfauto angepasst und optimiert. Das Wettkampffahrzeug verfügt über eine erweiterte Sensorsuite und soll im https://www.tu-braunschweig.de/carolo-cup/[Carolo Cup] der TU Braunschweig eingesetzt werden.
+
+Um den Studierenden die Einarbeitung möglichst einfach zu gestalten, wurde dieser Template-Workspace als Grundlage der Entwicklung erstellt. Durch die Bereitstellung einer festen Grundstruktur soll gewährleistet werden, dass der Code von zukünftigen Gruppen leicht weiterverwendet werden kann und der Austausch einzelner Softwarepakete einfach möglich ist. Die einzelnen Pakete erben von den Interfaces, die in der https://git-ce.rwth-aachen.de/af/library[libpsaf] spezifiziert sind.
+
+'''
+== Abhängigkeiten
+
+Der Template - Workspace ist von der https://git-ce.rwth-aachen.de/af/library[libpsaf] und der https://git-ce.rwth-aachen.de/af/psaf_ucbridge[uc_bridge] abhängig. Die Abhängigkeit von einer bestimmten Version erfolgt implizit über die Wahl des Docker-Containers.
+
+- Aktueller Docker Container: *latest*
+- libpsaf *3.1.0*
+- ucbridge: *2.2.0*
+
+Die Versionen können geändert werden, indem in der `.gitlab-ci.yml` eine andere Image Version ausgewählt wird.
+
+Wie ein neues Release erstellt wird und wie die Versionierung angepasst wird, ist im https://git-ce.rwth-aachen.de/af/images[Images] Repository erklärt.
+
+Der Abschnitt xref:Setup.adoc[Setup] beschäftigt sich mit der Einrichtung der Entwicklungsumgebung. Dieser Schritt ist nicht nötig, wenn man direkt auf den Autos arbeitet, da diese bereits vollständig eingerichtet sind.

@@ -1,0 +1,64 @@
+= State Machine
+:toclevels: 1
+
+Der Zustandsautomat ist das Herzstück des Workspace. Durch diesen wird vorgegeben, welche Fahraufgabe durchzuführen ist. Alle anderen Nodes bekommen den aktuellen Zustand mitgeteilt und können damit entscheiden, ob derzeit eine Aktion ausgeführt werden soll. Der Zustandsautomat ist in der Abbildung xref:img-state_machine[Zustandsautomat] dargestellt.
+
+[#img-state_machine]
+.Der Zustandsautomat im Start-Workspace
+image::statemachine_new.svg[]
+
+Zustandsübergänge werden über `StatusInfos` ausgelöst. Diese werden über Nachrichten vom Typ `libpsaf_msgs::msg::StatusInfo` auf dem Topic `status/status_info` übermittelt. Alle Nodes, die einen Zustandswechsel auslösen können, verfügen über einen StatusInfo-Publisher. Die möglichen Zustandsübergänge sind in der https://git-ce.rwth-aachen.de/af/library/[libpsaf] definiert und nachfolgend aufgelistet.
+
+[source,idlang]
+----
+uint8 STARTBOX_OPEN = 0                 # Detected opening of the start box
+uint8 UPHILL_START = 1                  # Beginn of uphill driving
+uint8 DOWNHILL_START = 2                # Beginn of Downhill driving
+uint8 DOWNHILL_END = 3                  # end of downhill driving
+uint8 STOP_LINE_APPROACH = 4            # Stop-line detected
+uint8 STOP_LINE_REACHED = 5             # Stop_line reached
+uint8 CONTINUE_NO_OBJECT = 6            # Resume drive after wait time, no object
+uint8 WAIT_FOR_OBJECT =  7              # Wait for Object at Intersection
+uint8 OBJECT_DETECTED = 8               # Object detected
+uint8 PARKING_INTENT = 9                # Parking intent = Startline detected
+uint8 PARKING_TIMEOUT = 10              # No parking spot found
+uint8 PARALLEL_FOUND = 11               # Parallel Parking Spot found
+uint8 PERPENDICULAR_FOUND = 12          # Perpendicular parking spot found
+uint8 PARKING_FINISHED  = 13            # Successfully parked in the spot
+uint8 PARKING_FAILED  = 14              # Parking failed
+uint8 PARK_TIME_REACHED = 15            # Parked, wait for time to pass
+uint8 BACK_ON_LANE = 16                 # Returned to lane
+uint8 STATIC_OBSTACLE = 17              # Static obstacle detected in front of car
+uint8 DYNAMIC_OBSTACLE = 18             # Dynamic obstacle in lane detected
+uint8 OVERTAKE_POSSIBLE = 19            # Overtaking possibility detected
+uint8 PASSED_OBSTACLE = 20              # Obstacle has been passed
+uint8 OVERTAKE_FINISHED = 21            # Returned to correct lane
+uint8 OVERTAKE_ABORT = 22               # Abort Overtaking attempt
+uint8 MANUAL_MODE_ENTER = 23            # Enter Manual Mode
+uint8 MANUAL_MODE_EXIT = 24             # Exit Manual Mode
+uint8 WATCHDOG_TIMEOUT = 25             # Timeout issued by the watchdog
+----
+
+Zum Testen kann manuell eine StatusInfo veröffentlicht werden. Hierfür kann die folgende Nachricht genutzt werden.
+
+    ros2 topic pub status_info libpsaf_msgs/msg/StatusInfo "type: 0"
+
+[WARNING]
+Für die korrekte Funktionsweise muss eine Disziplin gesetzt werden. Auf dem Wettkampfauto erfolgt dies durch Drücken des entsprechenden Knopfes am Heck des Autos. Beim PSAF 1 Auto oder um die StateMachine zu testen, muss der Knopfdruck simuliert werden. Dies erfolgt, indem man manuell eine Nachricht auf dem `ButtonPublisher` veröffentlicht. Ohne das Setzen der Disziplin kann der Zustandsautomat nicht in die Subautomaten `PARKING` und `OVERTAKE` wechseln.
+
+    ros2 topic pub /uc_bridge/button std_msgs::msg::Int8 "data: 0"
+
+[NOTE]
+Zur Auswahl der Disziplin 1 muss eine `1` anstatt der `0` veröffentlicht werden.
+
+Die Zustände des `Zustandsautomaten` sind wie folgt kodiert:
+
+[source,cpp]
+----
+include::../../src/psaf_state_machine/include/psaf_state_machine/state_definitions.hpp[]
+----
+
+Der Zustandsautomat besitzt Transition-Guards, die überprüfen, ob eine Transition ausgeführt werden darf. Falls dies nicht der Fall ist, so wird kein Zustandswechsel ausgelöst. So kann der Subautomat `Overtaking` in Disziplin 1 nie betreten werden, da Überholen nur in Disziplin 2 erforderlich ist.
+
+
+

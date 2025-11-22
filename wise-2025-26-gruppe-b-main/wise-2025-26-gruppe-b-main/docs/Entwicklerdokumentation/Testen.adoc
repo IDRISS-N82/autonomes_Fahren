@@ -1,0 +1,1541 @@
+= Testen
+:toclevels: 1
+
+Ein essenzieller Bestandteil des Entwicklerprozesses ist das Testen. ROS2  bietet hierfür eine gute Unterstützung. Zu den Tests gehören neben Codestyle- und Code-Konformitätsprüfungen auch individuelle Unit-, Integration- und Simulationstests. Diese werden nachfolgend genauer erklärt.
+
+Beispiele für ROS2 spezifische Tests können im https://github.com/ros2/rclcpp/tree/master/rclcpp/test[rclcpp Repo] gefunden werden.
+
+Jedes Paket besitzt bereits einen Dummy-Unittest-File. Für das Hinzufügen weiterer Tests muss die CMake-Datei angepasst werden. Hierbei müssen auch die nötigten Abhängigkeiten angegeben werden. Als Beispiele, wie die CMake-Datei anzupassen ist, können die CMake-Dateien in den Paketen `psaf_lanedetection`, `psaf_state_machine` und `psaf_startbox` genutzt werden.
+
+Nach der Erklärung erfolgt eine Auflistung der bereits vorhandenen Tests pro Paket.
+
+[IMPORTANT]
+Manche Tests können zum Bestehen gezwungen werden. Dies ist über die Flag `FORCE_TEST_PASS` in der Datei `configuration.hpp` im Paket `psaf_configuration` möglich. Falls die Flag auf `true` gesetzt ist, wird im Testfall anstatt der tatsächlichen Testbedingung die Bedingung `ASSERT_TRUE(true)` evaluiert. Diese Funktion kann auch während der Entwicklung genutzt werden, um ein Fehlschlagen von bereits implementierten Testfällen zu verhindern. Für die Abgabe muss diese Flag auf `false` gesetzt werden.
+
+== Codestyle- und Code-Konformitätsprüfungen
+
+ROS2 Foxy nutzt die Google Codstyle-Standards. Diese sind in der offiziellen https://docs.ros.org/en/foxy/Contributing/Code-Style-Language-Versions.html#id1[ROS2-Dokumentation] zu finden. Um die Einhaltung zu Testen, wird zum einen https://github.com/uncrustify/uncrustify[uncrustify], zum anderen https://github.com/cpplint/cpplint[cpplint] verwendet. `ament` bietet eine Möglichkeit, den Code automatisch nach den `uncrustify` Regeln zu formatieren. Hierfür muss im `src/` Ordner des Workspaces oder eines einzelnen Pakets folgender Befehl ausgeführt werden:
+
+    ament_uncrustify --reformat
+
+== Unit-Tests
+
+Für die Unit-Tests wird das https://github.com/google/googletest[googletest]-Framework verwendet. Die Tests werden im Ordner `test/` für jedes Paket separat erstellt. Ziel sollte es sein, jede Methode mindestens einmal auszuführen. Falls es innerhalb einer Methode mehrere Pfade gibt, so müssen diese alle getestet werden.
+
+== Integration-Tests
+
+Die Integrationstests sollen die Interaktion zwischen den einzelnen Teilen des Systems testen. Insbesondere soll die Reaktion auf ankommende Nachrichten überprüft werden. Hierfür müssen "Dummy"-Nachrichten erstellt werden. In der Datei `test/include/test_util.hpp` ist eine Klasse definiert, mit der beliebige Nachrichten empfangen und gesendet werden können. Bei den Integrationstests sollte der Fokus auf dem Testen der extremen Fälle liegen. So sollte bei Bildverarbeitenden Nodes mindestens die Reaktion auf leere Bilder, auf Bilder mit ungültigen Daten und auf Bilder mit ungültigen Dimensionen getestet werden.
+
+== Simulationstests
+
+Für die Simulationstests wird die bereits vorhandene https://git-ce.rwth-aachen.de/af/simulation[Simulationsumgebung] verwendet. Die Simulation unterstützt sowohl das PSAF 1 als auch das PSAF 2 Fahrzeug. Sofern möglich, sollen spezielle Szenarien erstellt werden. Das Szenario wird als ROS Bag-Datei gespeichert. Um ein ROS Bag aufzunehmen, muss der folgende Befehl ausgeführt werden, während das Szenario läuft:
+
+    # Um ein Topic aufzunehmen
+    ros2 bag -o <bagname> record <topic_name>
+
+    #Um mehrere Topics aufzunehmen
+    ros2 bag record -o <bagname> <topic_name_1> <topic_name_2> <topic_name_3>
+
+Mehr Informationen zur ROS Bags sind der offiziellen https://docs.ros.org/en/foxy/Tutorials/Ros2bag/Recording-And-Playing-Back-Data.html[Dokumentation] zu entnehmen.
+
+Bei den ROS Bags ist darauf zu achten, das diese am besten nur kurze Sequenzen enthalten und ein bestimmtes Szenario testen (Beispielsweise eine Fahrt auf gerader Strecke oder eine Kurve).
+
+[IMPORTANT]
+Die Steuerung des Modellfahrzeugs wird in der Simulationsumgebung selbst nur sehr rudimentär unterstützt. Es wird nur ein Geschwindigkeitswert für die Vorwärts- und Rückwärtsbewegung des Modellfahrzeugs verwendet. Das Lenken ist nur mit vollständigem Lenkausschlag nach rechts und links oder mit keinem Lenkausschlag möglich. Um eine präzisere Steuerung zu ermöglichen, kann der im Paket `psaf_utils` enthaltene `Controller` verwendet werden.
+
+== CI-Pipeline
+
+CI (Continuous Integration) ist ein Prozess, der die Builds und Tests nach jedem Commit ins GitLab automatisch ausführt. Die CI-Pipeline ist in der Datei ``.gitlab-ci.yml`` definiert. Der Dateiname darf nicht verändert werden, da Gitlab diese ansonsten nicht ausführen kann. Die Pipeline in diesem Workspace besteht aus 5 Schritten:
+
+    1. Build    - Bauen des Workspaces
+    2. Test     - automatisiertes Testen
+    3. Analysis    - Analyse des Codes und Berechnung der Code Coverage
+    4. Documentation - Erstellen der Dokumentation: https://www.doxygen.nl/index.html[Doxygen] und https://asciidoc.org/[Asciidoc].
+    5. Release - Erstellen eines Releases (nur bei Commit mit Tag)
+
+[#img-ci-pipeline]
+.CI-Pipeline
+image::ci_pipeline.png[]
+
+[WARNING]
+Es dürfen nie zwei Pipelines gleichzeitig gestartet werden, beispielsweise in verschiedenen Branches. Dies führt zu ungewollten Interaktionen zwischen den einzelnen Pipelines und somit zu einem Fehlschlagen der Tests. Aus dem gleichen Grund werden die Tests in der CI-Pipeline nicht parallel ausgeführt.
+
+[NOTE]
+Die Integrationstests des Zustandsautomaten schlagen in der Pipeline aufgrund von ungeklärten Ursachen teilweise fehl. Deshalb wird jeder Testfall bis zu 10x wiederholt.
+
+Spätestens zum Ende des Projektes muss die Pipeline erfolgreich durchlaufen. Optimalerweise sollte nach jeder Codeänderung ein Commit durchgeführt werden. Falls die Pipeline fehlschlägt, sollte der Fehler sofort behoben werden und erst danach mit der Entwicklung fortgefahren werden. Die Flag `FORCE_TEST_TRUE` in der Datei `configuration.hpp` muss spätestens bei Abgabe auf `false` geändert werden.
+
+== Ausführen der Tests
+
+Die Tests werden automatisch in de CI - Pipeline ausgeführt. Um lokal zu überprüfen, ob die Tests durchlaufen, kann folgender Befehle im Wurzelverzeichnis des Workspace ausgeführt werden:
+
+1. Bauen des Projektes:
+
+    # Bauen des gesamten Projektes
+    colcon build --symlink-install
+
+    # Bauen eines einzelnen Paketes
+    colcon build --packages-select <package_name> --symlink-install
+
+2. Testen des gesamten Projektes:
+
+    # Testen des gesamten Projektes
+    colcon test
+
+    # Testen eines einzelnen Paketes
+    colcon test --packages-select <package_name>
+
+    # Testen mit Ausgabe der Ergebnisse
+    colcon test --packages-select <package_name> --event-handlers console_direct+
+
+3. Berechnen der Code Coverage:
+
+    # Builden mit cmake flags
+    colcon build --packages-select <package_name> --cmake-args -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage " -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage -DCOVERAGE_RUN=1"
+
+    # Initialisieren
+    colcon lcov-result --packages-select <package_name> --zero-counters
+    colcon lcov-result --packages-select <package_name> --initial
+
+    # Running the tests
+    colcon test --packages-select <package_name>
+
+    # Calculating the coverage
+    colcon lcov-result --packages-select <package_name> --verbose
+
+Die Ergebnisse der Code Coverage Berechnung sind im neuen Ordner `lcov/` gespeichert.
+
+Alternativ können die Tests und die Coverage Berechnung auch über die Skripte im Ordner `scripts/` ausgeführt werden. Die Skripte müssen im Basisordner des Projektes aufgerufen werden.
+
+Zum Starten der Tests für ein Paket:
+
+[source,sh]
+    . scripts/run_tests.sh
+
+Zum Starten der Code Coverage Berechnung für ein Paket:
+
+[source,sh]
+    . scripts/calc_coverage.sh
+
+'''
+'''
+Nchfolgend sind die bereits vorhandenen Testfälle detailiert aufgelistet. In jeder Tabelle wird hierbei genau ein Testfall beschrieben. Die Tabellen bestehen aus folgenden Einträgen:
+
+. *Name:* Der Name des Testfalls
+. *Testobjekt:* Das Testobjekt, das vom Testfall geprüft wird. Hierbei kann es sich um einzelne Methoden, eine Kommunikationsschnittstelle oder eine komplette Node handeln.
+. *Beschreibung:* - Eine Beschreibung des Testfalls.
+. *Vorbedingung:* - Eine Beschreibung der Vorbedingungen, die für den Testfall vorliegen müssen.
+. *Eingabewert(e):* Ein oder mehrere Werte, die als Eingabe für den Testfall verwendet werden.
+. *Erwarteter Ausgabe:* Der erwartete Rückgabewert des Testobjekts.
+
+== Spurerkennung
+
+Die Testfälle für die LaneDetection sind im Ordner `test/` zu finden. Sie bestehen aus Unit-, Integrations- und Simulationstests. Die Tests sind für den vorgeschlagenen xref:Workspace.adoc#_psaf_lane_detectionlane_detection[Kontrollfluss] ausgelegt. Die Unit-Tests überprüfen hierbei die einzelnen Methoden, die Integrationstests simulieren den Eingang verschiedener Nachrichten und prüfen die Reaktion des Paketes auf diese und die Simulationstests prüfen repräsentative Fahrsituationen.
+
+[NOTE]
+Sollte der Kontrollfluss oder Methodensignaturen geändert werden, müssen die Testfälle ebenfalls angepasst werden. Um kurzzeitig das Bestehen der Testfälle zu garantieren, können die Bedingungen durch ein `ASSERT_TRUE(true)` ersetzt werden. Dies bewirkt, dass der Testfall in jedem Fall als erfolgreich markiert wird. Spätestens zum Abschluss des Projektes müssen die Testfälle mit echten Testbedingungen bestanden sein.
+
+=== Unit-Tests
+
+Die Unit-Tests sind in der Datei `test/unit_tests.cpp` zu finden. Hier werden die einzelnen Methoden des LaneDetection Pakets getestet. Jede Methode wird hierbei mindestens einmal aufgerufen. Die Unittests sind nachfolgend alle aufgelistet. Der Eintrag Eingabewerte beschreibt hierbei immer den zu testenden Parameter. Wenn eine Methode mehr als einen Parameter akzeptiert, kann davon ausgegangen werden das die nicht genannten Variablen gültig sind.
+
+Testcase 1:
+|===
+| *Name* | TestResizeImage
+| *Testobjekt* | resizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild auf die korrekte Größe verkleinert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe abweichend von 640x480
+| *Erwartete Ausgabe* | Bild mit korrekter Größe
+|===
+
+Testcase 2:
+|===
+| *Name* | TestImageResizeNoChange
+| *Testobjekt* | resizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht verändert wird, wenn die Größe bereits korrekt ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480
+| *Erwartete Ausgabe* | Bild mit korrekter Größe
+|===
+
+Testcase 3:
+|===
+| *Name* | TestDoesNotResizeEmptyImage
+| *Testobjekt* | resizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht verändert wird, wenn das Eingabebild leer ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 4:
+|===
+| *Name* | TestGrayScaleImage
+| *Testobjekt* | grayscaleImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild in Graustufen konvertiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Farbbild mit einer Größe 640x480
+| *Erwartete Ausgabe* | Bild mit nur einem Kanal
+|===
+
+Testcase 5:
+|===
+| *Name* | TestDoesNotGrayScaleEmptyImage
+| *Testobjekt* | grayscaleImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht in Graustufen konvertiert wird, wenn das Eingabebild leer ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 6:
+|===
+| *Name* | TestCanHandleGrayScaleImageAsInput
+| *Testobjekt* | grayScaleImage(...)
+| *Beschreibung* | Testet, ob ein 1-Kanal Graustufenbild korrekt behandelt wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Graustufenbild mit einer Größe 640x480
+| *Erwartete Ausgabe* | Das unveränderte Eingabebild
+|===
+
+Testcase 7:
+|===
+| *Name* | TestDoesGrayScaleCorrectly
+| *Testobjekt* | grayScaleImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild in Graustufen konvertiert wird.
+| *Vorbedingung* | Lookup Table mit den korrekten Graustufenwerten muss vorhanden sein.
+| *Eingabewert(e)* | Ein Bild mit unterschiedlichen Farbsegmenten.
+| *Erwartete Ausgabe* | Bild mit Graustufen
+|===
+
+Testcase 8:
+|===
+| *Name* | TestDoesNotTransformEmptyImage
+| *Testobjekt* | transformImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht transformiert wird, wenn das Eingabebild leer ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 9:
+|===
+| *Name* | TestDoesNotTransformEmptyHomography
+| *Testobjekt* | transformImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht transformiert wird, wenn die Homographiematrix leer ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eine leere Homographiematrix
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 10:
+|===
+| *Name* | TestDoesNotTransformHomographyNot3x3
+| *Testobjekt* | transformImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht transformiert wird, wenn die Homographiematrix nicht 3x3 ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eine Homographiematrix mit einer Größe 2x3
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 11:
+|===
+| *Name* | TestDoesNotBinarizeEmptyImage
+| *Testobjekt* | binarizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht in ein Binärbild konvertiert wird, wenn das Eingabebild leer ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 12:
+|===
+| *Name* | TestResultEmptyIfLowerGreaterThanUpper
+| *Testobjekt* | binarizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht in ein Binärbild konvertiert wird, wenn der untere Grenzwert größer ist als der obere.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Threshold_low > Threshold_high
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 13:
+|===
+| *Name* | TestResultEmptyIfLowerIsEqUpper
+| *Testobjekt* | binarizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild nicht in ein Binärbild konvertiert wird, wenn der untere Grenzwert gleich dem oberen ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Threshold_low == Threshold_high
+| *Erwartete Ausgabe* | Leeres Bild und kein Absturz
+|===
+
+Testcase 14:
+|===
+| *Name* | TestDoesCreateBinaryImage
+| *Testobjekt* | binarizeImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild in ein Binärbild konvertiert wird. Das Eingabebild entspricht einer oberen Dreiecksmatrix mit Pixelwerten von 180 und 255.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Das oben beschriebene Eingabebild
+| *Erwartete Ausgabe* | Das resultierende Binärbild
+|===
+
+Testcase 15:
+|===
+| *Name* | TestDoesReturnEmptyImageIfElementsBelowThresh
+| *Testobjekt* | binarizeImage(...)
+| *Beschreibung* | Teste, ob ein leeres Bild zurückgegeben wird, falls alle Pixelwerte niederigel als der untere Grenzwert sind.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480 mit Pixelwerten von 126
+| *Erwartete Ausgabe* | Ein leeres Bild mit einer Größe 640x480
+|===
+
+Testcase 16:
+|===
+| *Name* | TestDoesNotExtractLanesEmptyImage
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob in einem leeren Bild auch keine Spurmarkierungen detektiert werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Ein leeres Ergebnisvektor = keine detektierten Spurmarkierungen
+|===
+
+Testcase 17:
+|===
+| *Name* | TestDoesExtractLanesThreeStraightLanes
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob in einem Eingabebild drei gerade Linien detektiert werden.
+| *Vorbedingung* | Lookup Tabelle mit den Kooridinaten der Linien
+| *Eingabewert(e)* | Computergeneriertes Eingabebild mit drei geraden Linien.
+| *Erwartete Ausgabe* | Vektor von Vektoren mit den Punkten der drei Spurmarkierungen
+|===
+
+Testcase 18:
+|===
+| *Name* | TestCanDetectDoubleSolidMiddle
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob in einem Eingabebild eine doppelte Mittelinie detektiert wird. Dies entspricht einer Zone, in der nicht überholt werden darf
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480 mit einer doppelten Mittelinie.
+| *Erwartete Ausgabe* | Datenfeld `no_overtaking_` == true
+|===
+
+Testcase 19:
+|===
+| *Name* | TestExtractLanesRightCurve
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob die Spurmarkierungen in einer Rechtskurve detektiert werden.
+| *Vorbedingung* | Lookup Tabelle mit den Koordinaten der Linien
+| *Eingabewert(e)* | Ein computergeneriertes Eingabebild mit einer rechtskurve. Zur Erzeugung wird die Formel `y = 58 * e^(-0.015 * x)` mit anschließendem Tausch der x und y Koordinaten sowie einer Verschiebung um 130/290/450 Pixel nach rechts verwendet.
+| *Erwartete Ausgabe* | Vektor von Vektoren mit den Punkten der Spurmarkierungen
+|===
+
+Testcase 20:
+|===
+| *Name* | TestExtractLanesSnakeCurve
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob die Spurmarkierungen in einer Verschwenkung detektiert werden.
+| *Vorbedingung* | Lookup Tabelle mit den Koordinaten der Linien
+| *Eingabewert(e)* | Ein computergeneriertes Eingabebild mit einer Verschwenkung. Zur Erzeugung wird die Formel `y = 30 * sin(x/100) +30` mit anschließendem Tausch der x und y Koordinaten sowie einer Verschiebung um 10/220/450 Pixel nach rechts verwendet.
+| *Erwartete Ausgabe* | Vektor von Vektoren mit den Punkten der Spurmarkierungen
+|===
+
+Testcase 21:
+|===
+| *Name* | TestDoesReturnEmptyForNoMarkings
+| *Testobjekt* | extractLaneMarkings(...)
+| *Beschreibung* | Testet, ob ein leerer Ergebnisvektor zurückgegeben wird, wenn das Eingabebild keine Spurmarkierungen enthält werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480 mit Pixelwerten von 0
+| *Erwartete Ausgabe* | Ein leerer Ergebnisvektor = keine detektierten Spurmarkierungen
+|===
+
+Testcase 22:
+|===
+| *Name* | TestDoesNotFindStopLineInEmptyImage
+| *Testobjekt* | extractStopLine(...)
+| *Beschreibung* | Testet, ob in einem leeren Bild auch keine Stoplinie detektiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein leeres Eingabebild mit einer Größe 0x0
+| *Erwartete Ausgabe* | Keine Detektion der Stoplinie
+|===
+
+Testcase 23:
+|===
+| *Name* | TestDoesDetectSolidStopLine
+| *Testobjekt* | extractStopLine(...)
+| *Beschreibung* | Testet, ob in einem Eingabebild eine durchgezogene Stoplinie detektiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480 mit einer durchgezogenen Stoplinie.
+| *Erwartete Ausgabe* | Entfernung der Stoplinie in Pixeln korrekt
+|===
+
+Testcase 24:
+|===
+| *Name* | TestDoesDetectDashedStopLine
+| *Testobjekt* | extractStopLine(...)
+| *Beschreibung* | Testet, ob in einem Eingabebild eine gestrichelte Stoplinie detektiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ein Eingabebild mit einer Größe 640x480 mit einer gestrichelten Stoplinie.
+| *Erwartete Ausgabe* | Entfernung der Stoplinie in Pixeln korrekt
+|===
+
+Testcase 25:
+|===
+| *Name* | TestDoesTransformCorrectly
+| *Testobjekt* | transformImage(...)
+| *Beschreibung* | Testet, ob ein Eingabebild korrekt transformiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eine 3x3 Matrix mit den Werten 1,2,3,4,5,6,7,8,9 als Eingabebild. Verschiedene Homographiematrizen.
+| *Erwartete Ausgabe* | Die der Transformation entsprechenden Werte der Matrix
+|===
+
+
+
+=== Integrationstests
+
+Die Integrationstests sind in der Datei `test/integration_tests.cpp` zu finden. Die Integrationstests überprüfen, ob die LaneDetectionNode korrekt auf eingehende Nachrichten reagiert und ob die Node eigene Nachrichten korrekt sendet. Für das Senden werden Dummy Publisher genutzt.
+
+Testcase 1:
+|===
+| *Name* | TestNodeCanBeCreated
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die LaneDetectionNode erstellt werden kann.
+| *Vorbedingung* | rclcpp::init wurde aufgerufen
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Node im Ros-Netzwerk sichtbar
+|===
+
+Testcase 2:
+|===
+| *Name* | TestTopicCount
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die LaneDetectionNode genau die richtige Anzahl an Publishern und Subscriber hat.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Anzahl der Subscriber und Publisher korrekt
+|===
+
+Testcase 3:
+|===
+| *Name* | TestCanReceiveImageMessages
+| *Testobjekt* | LaneDetectionNode::processImage(...)
+| *Beschreibung* | Testet, ob ein Bild in der LaneDetectionNode korrekt empfangen wird.
+| *Vorbedingung* | LaneDetection muss gestartet sein
+| *Eingabewert(e)* | Eine Bildnachricht mit einem leeren Bild, die über das Netzwerk gesendet wird
+| *Erwartete Ausgabe* | Empfange Spurmarkierungsnachricht enthält 3 leere Vektoren
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanReceiveStateChange
+| *Testobjekt* | LaneDetectionNode::updateState(...)
+| *Beschreibung* | Testet, ob der gesendete Zustand in der LaneDetectionNode korrekt empfangen wird.
+| *Vorbedingung* | LaneDetection muss gestartet sein
+| *Eingabewert(e)* | Ein Zustandsnachricht mit einem Zustand, der über das Netzwerk gesendet wird
+| *Erwartete Ausgabe* | Interne Zustandsvariable entspricht dem gesendeten Zustand.
+|===
+
+Testcase 5:
+|===
+| *Name* | TestDoesNotSendStatusInfoWithoutStateChange
+| *Testobjekt* | LaneDetectionNode::update(...)
+| *Beschreibung* | Testet, ob ohne Zustandswechsel keine Nachricht gesendet wird.
+| *Vorbedingung* | LaneDetection muss gestartet sein. Zustand ist noch nicht geändert worden.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Nach 3 Sekunden wird noch keine Spurmarkierungsnachricht im Testfall empfangen.
+|===
+
+Testcase 6:
+|===
+| *Name* | TestDoesSendStatusInfoInStateTen
+| *Testobjekt* | LaneDetectionNode::update(...)
+| *Beschreibung* | Testet, ob eine Spurmarkierungsnachricht gesendet wird, wenn der Zustand auf 10 gesetzt wird.
+| *Vorbedingung* | LaneDetection muss gestartet sein. Aktueller Zustand ist 10.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Spurmarkierungsnachricht wird innerhalb von 3 Sekunden empfangen.
+|===
+
+Testcase 7:
+|===
+| *Name* | TestDoesSendStopLineIfInCorrectState
+| *Testobjekt* | LaneDetectionNode::update(...)
+| *Beschreibung* | Testet, ob eine Spurmarkierungsnachricht gesendet wird, wenn der aktuelle Zustand 10, 13 oder 14 ist.
+| *Vorbedingung* | LaneDetection muss gestartet sein. Zustand ist 10, 13 oder 14.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Spurmarkierungsnachricht wird innerhalb von 3 Sekunden für jeden Zustand empfangen.
+|===
+
+Testcase 8:
+|===
+| *Name* | TestCanResizeImage
+| *Testobjekt* | LaneDetectionNode::processImage(...)
+| *Beschreibung* | Testet, ob ein Bild mit falschen Dimensionen korrekt verarbeitet wird.
+| *Vorbedingung* | LaneDetection muss gestartet sein.
+| *Eingabewert(e)* | Eine Bildnachricht mit einem Bild mit falschen Dimensionen, die über das Netzwerk gesendet wird
+| *Erwartete Ausgabe* | Interne Bildvariablen entsprechen hat die korrekte Dimension von 640x480 Pixeln.
+|===
+
+
+=== Simulationstests
+
+Die Simulationstests testen die Node als Ganzes. Hierfür wurden https://docs.ros.org/en/foxy/Tutorials/Ros2bag/Recording-And-Playing-Back-Data.html[ROS Bags] genutzt. Bei der Initialisierung der Test Suite wird der Bag gelesen und die Nachrichten deserialisiert. Dieser Schritt ist essenziell, da die gespeicherten Nachrichten ansonsten nicht verarbeitet werden können. Die deserialisierten Nachrichten werden in einem Vektor gespeichert und können anschließend gepublisht werden. Durch die Speicherung in einem Vektor wird das wiederholte Laden des Bags vermieden, was die Simulationstests beschleunigt. Die Bags enthalten 4 Szenarien:
+
+. Fahrt auf gerader Strecke
+. Fahrt auf der äußeren Spur eines Kreises
+. Fahrt auf der inneren Spur eines Kreises
+. Spurwechsel auf die linke Fahrbahn
+
+Die Szenarien sind sowohl für das PSAF 1 sowie für das PSAF 2 Auto mithilfe der https://git-ce.rwth-aachen.de/af/simulation[Simulationsumgebung] erstellt worden. Die Auswahl der Bags je nach Seminar erfolgt automatisch, indem die Flag `PSAF1` in der Datei `psaf_configuration.hpp` ausgewertet wird. In der Abbildung xref:img-sim_example[Simulation] sind die Unterschiede zwischen den Szenarien zu sehen.
+
+[#img-sim_example]
+.Beispiele aus der Simulationsumgebung
+image::Szenarien.svg[]
+
+'''
+
+Die Simulationstests nutzen verschiedene Methoden, um die Korrektheit der eigenen Algorithmen zu überprüfen. Der Tests für die `Fahrt auf gerader Strecke` berechnet eine Gerade aus dem ersten und dem letzten Punkt der erkannten Spurmarkierungen. Alle Punkte dazwischen müssen auf oder geringfügig neben dieser Gerade liegen.
+
+Für die Überprüfung der Kreisfahrt enthalten die Simulationstests eine Implementierung des https://pyimagesearch.com/2015/03/23/sliding-windows-for-object-detection-with-python-and-opencv/[`SlidingWindow Algorithmus`]. Die Tests überprüfen, ob die durch die eigene Implementierung detektierten Punkte in der Nähe der vom Sliding Window Algorithmus detektierten Punkte liegen. Sollte es hierzu zu Problemen kommen, können einzelne Bilder übersprungen werden, indem man eine entsprechende Abfrage einfügt. Dies sollte aber nur als letzter Ausweg genutzt werden. Die vom eigenen Algorithmus erkannten Punkte dürfen maximal in einem Radius von 25 Pixeln um die vom Referenz Sliding Window Algorithmus erkannten Punkte liegen. Bei den Spurwechseltests wird geprüft, ob sich das Fahrzeug am Ende auf der korrekten Fahrspur befindet.
+
+Testcase 1:
+|===
+| *Name* | TestNumberOfMessagesFromEachBag
+| *Testobjekt* | Testsuite itself
+| *Beschreibung* | Testet, ob die Anzahl der eingelesenen Nachrichten aus den Bags korrrekt ist.
+| *Vorbedingung* | Testsuite muss gestartet und die Bags eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Anzahl der Nachrichten aus den Bags stimmt mit der Anzahl der Nachrichten überein.
+|===
+
+Testcase 2:
+|===
+| *Name* | TestResolutionOfImageMessages
+| *Testobjekt* | Vektor mit den eingelesenen Nachrichten
+| *Beschreibung* | Testet, ob die Bildgröße der eingelesenen Nachrichten korrekt ist.
+| *Vorbedingung* | Testsuite muss gestartet und die Bags eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Die Bildgröße der eingelesenen Nachrichten stimmt mit 640x480 Pixeln überein.
+|===
+
+Testcase 3:
+|===
+| *Name* | TestCanReceiveImageMessages
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die Nachrichten in der LaneDetectionNode empfangen werden können.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | LaneDetectionNode empfängt Bildnachrichten. Interne Bildvariable hat die korrekte Dimension von 640x480 Pixeln.
+|===
+
+Testcase 4:
+|===
+| *Name* | TestResultOfStraightLaneExtraction
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die detektierten Spurmarkierungen aus der LaneDetectionNode korrekt sind.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Nachrichten mit der simulierten Fahrt auf gerader Strecke
+| *Erwartete Ausgabe* | Alle Punkte für jede Spurmarkierung liegen auf einer Linie.
+|===
+
+Testcase 5:
+|===
+| *Name* | TestDetectedPointsMatchLanesInInnerCircle
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die detektierten Spurmarkierungen bei der Fahrt auf der inneren Spur eines Kreises korrekt sind.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Nachrichten mit den Bildern einer simulierten Fahrt auf der inneren Spur eines Kreises.
+| *Erwartete Ausgabe* | Zurückgelieferte Spurmarkierungen entsprechen den Punkten, die vom Kontroll Sliding-Window Algorithmus erkannt wurden.
+|===
+
+Testcase 6:
+|===
+| *Name* | TestDetectedPointsMatchLanesInOuterCircle
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob die detektierten Spurmarkierungen bei der Fahrt auf der äußeren Spur eines Kreises korrekt sind.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Nachrichten mit den Bildern einer simulierten Fahrt auf der äußeren Spur eines Kreises.
+| *Erwartete Ausgabe* | Zurückgelieferte Spurmarkierungen entsprechen den Punkten, die vom Kontroll Sliding-Window Algorithmus erkannt wurden.
+|===
+
+Testcase 7:
+|===
+| *Name* | TestDetectsStaysOnRightLane
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob das Fahrzeug immer die Fahrt auf der rechten Spur detektiert, wenn kein Spurwechsel vorkommt.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Nachrichten mit den Bildern einer simulierten Fahrt auf gerader Strecke.
+| *Erwartete Ausgabe* | Zurückgeliefte Nachrichten enthalten als Fahrspurseite immer den Wert 0.
+|===
+
+Testcase 8:
+|===
+| *Name* | TestCanDetectLaneChange
+| *Testobjekt* | LaneDetectionNode
+| *Beschreibung* | Testet, ob das Fahrzeug einen Spurwechsel korrekt detektiert, wenn ein Spurwechsel durchgeführt wird.
+| *Vorbedingung* | LaneDetectionNode muss gestartet sein. Bags müssen eingelesen und deserialisiert sein.
+| *Eingabewert(e)* | Nachrichten mit den Bildern einer simulierten Fahrt auf gerader Strecke, in denen ein Spurwechsel auf die linke Spur durchgeführt wird.
+| *Erwartete Ausgabe* | Die erste zurckgelieferte Spurmarkierungsnachricht enthält als Fahrspurseite den Wert 0. Die letzte zurückgelieferte Spurmarkierungsnachricht enthält als Fahrspurseite den Wert 1.
+|===
+
+== Zustandsautomat
+
+Die Tests für die StateMachine sind abgeschlossen und befinden sich im Ordner `psaf_state_machine/test`.
+
+[NOTE]
+Die Testfälle sind korrekt und laufen durch. Es kann dennoch vorkommen, das die Tests in der CI-Pipeline fehlschlagen. Falls ein Test fehlschlägt, wird diese Stage in der CI-Pipeline bis zu zwei weitere Male durchgeführt. In einem Großteil der Fälle läuft die Pipeline dann auch durch. Falls die Pipeline in allen 3 Versuchen fehlschlagen sollte, kann die Testdurchführung manuell erneut gestartet werden oder wird automatisch beim nächsten Commit wiederholt.
+
+Die Testfälle sind nachfolgend genau beschrieben.
+
+=== test_state_machine.cpp ===
+In dieser Datei werden die unabhängigen Zustände geprüft. Diese sind:
+
+. STARTBOX
+. MANUAL_MODE
+. ERROR
+. SHUTDOWN
+
+Testcase 1:
+|===
+| *Name* | TestIsInStartboxState
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob sich der Zustandsautomat nach der Initialisierung im Startbox-Zustand befindet.
+| *Vorbedingung* | keine
+| *Eingabewert(e)* | keine
+| *Erwartete Ausgabe* | Der Zustandsautomat ist im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 2:
+|===
+| *Name* | TestStaysInStartBoxIfNoButtonWasPressedAndInvalidStatusInfo
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat im Startbox-Zustand bleibt, wenn kein Button gedrückt wurde und ein ungültiges Zustandsübergangsevent übergeben wird.
+| *Vorbedingung* | kein Drücken oder Simulieren eines Knopfes
+| *Eingabewert(e)* | StatusInfo mit ungültigem Typ
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 3:
+|===
+| *Name* | TestStaysInStartBoxIfNoButtonWasPressedButValidStatus
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat im Startbox-Zustand bleibt, wenn kein Button gedrückt wurde und ein gültiges Zustandsübergangsevent übergeben wird.
+| *Vorbedingung* | kein Drücken oder Simulieren eines Knopfes
+| *Eingabewert(e)* | StatusInfo mit gültigem Typ
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 4:
+|===
+| *Name* | TestStaysInStartBoxStateIfButtonWasPressedButInvalidStatusInfo
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat im Startbox-Zustand bleibt, wenn ein Button gedrückt wurde und ein ungültiges Zustandsübergangsevent übergeben wird.
+| *Vorbedingung* | Drücken oder Simulieren eines Knopfes erfolgt
+| *Eingabewert(e)* | StatusInfo mit ungültigem Typ
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 5:
+|===
+| *Name* | TestTransitToNormalDrive
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Normal-Fahrmodus wechselt, wenn der Button gedrückt wurde und das gültige Zustandsübergangsevent übergeben wird.
+| *Vorbedingung* | Drücken oder Simulieren eines Knopfes erfolgt
+| *Eingabewert(e)* | StatusInfo mit gültigem Typ
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Normal-Fahrmodus. (state == DR_NORMAL)
+|===
+
+Testcase 6:
+|===
+| *Name* | TestTransitIntoErrorState
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Error-Zustand wechselt, wenn ein `ErrorEvent` übergeben wird.
+| *Vorbedingung* | keine
+| *Eingabewert(e)* | ErrorEvent
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Error-Zustand. (state == ERROR)
+|===
+
+Testcase 7:
+|===
+| *Name* | TestTransitIntoManualMode
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Manual-Modus wechselt, wenn das `StatusEvent` für den manuellen Modus übergeben wird.
+| *Vorbedingung* | keine
+| *Eingabewert(e)* | StatusEvent(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Manual-Modus. (state == MANUAL_MODE)
+|===
+
+Testcase 8:
+|===
+| *Name* | TestCanReturnFromManualMode
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den normalen Fahrmodus wechseln kann, wenn der manuelle Modus beendet wird.
+| *Vorbedingung* | Zustandsautomat im Zustand MANUAL_MODE
+| *Eingabewert(e)* | StatusEvent(MANUAL_MODE_EXIT)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Normal-Fahrmodus. (state == DR_NORMAL)
+|===
+
+Testcase 9:
+|===
+| *Name* | TestCanEnterManuelModeFromErrorState
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den manuellen Modus wechseln kann, wenn der Zustandsautomat im Error-Zustand ist.
+| *Vorbedingung* | Zustandsautomat im Zustand ERROR
+| *Eingabewert(e)* | StatusEvent(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Manual-Modus. (state == MANUAL_MODE)
+|===
+
+Testcase 10:
+|===
+| *Name* | TestDoesNotRecoverInErrorState
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat im den Zustand SHUTDOWN wechselt, nachdem der Watchdog das TIMEOUT-Event ausgelöst hat.
+| *Vorbedingung* | Zustandsautomat im Zustand ERROR
+| *Eingabewert(e)* | StatusEvent(WATCHDOG_TIMEOUT)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand SHUTDOWN. (state == SHUTDOWN)
+|===
+
+Testcase 11:
+|===
+| *Name* | TestDoesNotReactToStatusEventFromDriving
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus dem `DRIVING` Subautomat reagiert, während das Automat im Zustands STARTBOX ist.
+| *Vorbedingung* | Zustandsautomat im Zustand STARTBOX
+| *Eingabewert(e)* | StatusEvent(UPHILL_START)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 12:
+|===
+| *Name* | TestDoesNotReactToStatusEventFromOvertake
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus dem `OVERTAKE` Subautomat reagiert, während das Automat im Zustands STARTBOX ist.
+| *Vorbedingung* | Zustandsautomat im Zustand STARTBOX
+| *Eingabewert(e)* | StatusEvent(DYNAMIC_OBSTACLE)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+Testcase 13:
+|===
+| *Name* | TestDoesNotReactToStatusEventFromParking
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus dem `PARKING` Subautomat reagiert, während das Automat im Zustands STARTBOX ist.
+| *Vorbedingung* | Zustandsautomat im Zustand STARTBOX
+| *Eingabewert(e)* | StatusEvent(PARALLEL_FOUND)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startbox-Zustand. (state == STARTBOX)
+|===
+
+
+=== test_state_machine_discipline_one.cpp
+
+In dieser Testklasse werden die Zustandsübergänge für die erste Disziplin im Carolo Cup "Rundkurs mit Einparken" getestet. Hierbei werden parametrisierte Tests genutzt. Bei einem parametrisierten Test werden die Eingabewert in einer Liste definiert. `googletest` generiert für jeden Eingabewert einen eigenen Testfall. Mehr Informationen über den Einsatz von parametrisierten Tests können in der Dokumentation von https://google.github.io/googletest/reference/testing.html[`googletest`] gefunden werden.
+
+Testcase 1:
+|===
+| *Name* | TestIfValidTransitionsWorks
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Dieser Testfall bildet den Rahmen für die parametrisierten Tests. Übergeben wird jeweils ein Vektor, der aus {Startzustand, Zustandsübergang, Zielzustand} besteht. Dabei wird der Zustandsübergang ausgeführt und das Zielzustand überprüft.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Vektor aus {Startzustand, Zustandsübergang, Zielzustand}
+| *Erwartete Ausgabe* | Der übergebene Zielzustand stimmt mit dem übergebenen Zielzustand überein.
+|===
+
+
+Testcase 2:
+|===
+| *Name* | TestIfStateMachineDoesNotReactToInvalidOvertakeTransition
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus dem `OVERTAKE` Subautomat reagiert, wenn über den Knopf Disziplin 1 aufgewählt wurde.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | StatusEvent(OVERTAKE_POSSIBLE)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im `DRIVING` Subautomat. (state == DR_NORMAL)
+|===
+
+Testcase 3:
+|===
+| *Name* | TestDoesNotReactToInvalidIndependentTransition
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus den unabhängigen Zuständen reagiert.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | StatusEvent(WATCHDOG_TIMEOUT)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im `DRIVING` Subautomat. (state == DR_NORMAL)
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanEnterErrorModeInDriving
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Error-Zustand wechselt, wenn der Zustandsautomat im `DRIVING` Subautomat im Zustand `DR_NORMAL` ist und ein ERROR-Event ausgelöst wird.
+| *Vorbedingung* | Zustandsautomat im Zustand `DR_NORMAL`
+| *Eingabewert(e)* | StatusEvent(ERROR)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+Testcase 5:
+|===
+| *Name* | TestCanEnterErrorFromParking
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Error-Zustand wechselt, wenn der Zustandsautomat im `PARKING` Subautomat im Zustand `PR_SEARCH` ist und ein ERROR-Event ausgelöst wird.
+| *Vorbedingung* | Zustandsautomat im Zustand `PR_SEARCH`
+| *Eingabewert(e)* | StatusEvent(ERROR)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+=== test_state_machine_discipline_two.cpp
+Diese Testklasse enthält die Tests für die zweite Disziplin im Carolo Cup "Rundkurs mit Hindernissen". Der Aufbau ist der gleiche wie bei der ersten Disziplin. Auch in dieser Testklasse werden parametrisierte Tests genutzt.
+
+Testcase 1:
+|===
+| *Name* | TestIfValidTransitionsWorks
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Dieser Testfall bildet den Rahmen für die parametrisierten Tests. Übergeben wird jeweils ein Vektor, der aus {Startzustand, Zustandsübergang, Zielzustand} besteht. Dabei wird der Zustandsübergang ausgeführt und das Zielzustand überprüft.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | Vektor aus {Startzustand, Zustandsübergang, Zielzustand}
+| *Erwartete Ausgabe* | Der übergebene Zielzustand stimmt mit dem übergebenen Zielzustand überein.
+|===
+
+Testcase 2:
+|===
+| *Name* | TestIgnoresInvalidParkingTransition
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus dem `PARKING` Subautomat reagiert, wenn über den Knopf Disziplin 2 ausgewählt wurde.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | StatusEvent(PARKING_INTENT)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im `DRIVING` Subautomat. (state == DR_NORMAL)
+|===
+
+Testcase 3:
+|===
+| *Name* | TestIgnoresInvalidIndependentTransition
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf ein ungültiges StatusEvent aus den unabhängigen Zuständen reagiert.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | StatusEvent(WATCHDOG_TIMEOUT)
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im `DRIVING` Subautomat. (state == DR_NORMAL)
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanEnterErrorModeInDriving
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Error-Zustand wechselt, wenn der Zustandsautomat im `DRIVING` Subautomat im Zustand `DR_NORMAL` ist und ein ERROR-Event ausgelöst wird.
+| *Vorbedingung* | Zustandsautomat im Zustand `DR_NORMAL`
+| *Eingabewert(e)* | StatusEvent(ERROR)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+Testcase 5:
+|===
+| *Name* |  TestCanEnterErrorFromOvertake
+| *Testobjekt* | StateMachine::current_state
+| *Beschreibung* | Testet, ob der Zustandsautomat in den Error-Zustand wechselt, wenn der Zustandsautomat im `OVERTAKE` Subautomat ist und ein ERROR-Event ausgelöst wird.
+| *Vorbedingung* | Zustandsautomat im Subautomat `OVERTAKE`
+| *Eingabewert(e)* | StatusEvent(ERROR)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+=== Integrationstests
+
+Die Datei `integration_test.cpp` enthält die Integrationstests für die StateMachine. Die Integrationstests prüfen, ob die StateMachine korrekt auf externe Trigger reagiert. Externe Trigger sind:
+
+. Status Info Nachrichten
+. Manual Mode aktiv Meldungen
+. Error Nachrichten
+. Button Press Nachrichten
+
+Die Nachrichten werden von einem Dummy Publisher versendet, der im `include/` Ordner des Tests liegt. Dieser Empfängt auch die Antwort der StateMachine und gibt sie an die Testsuite zurück. In den Integrationstests ist auch ein Beispiel für die automatische Erzeugung von Testfällen enthalten. Hierbei werden zufällige Sequenzen von 5, 25, 50, 100 und 500 Nachrichten erzeugt. Mithilfe eines Testorakles werden die erwarteten Nachrichten generiert und mit den erhaltenen Nachrichten verglichen. Das Testorakle nutzt die Datei `test/include/random_tests.hpp` um mithilfe der gültigen Transitionen die erwarteten Zielzustände zu generieren.
+
+Testcase 1:
+|===
+| *Name* | TestCheckNodeName
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Name der StateMachineNode richtig gesetzt wurde.
+| *Vorbedingung* | rclcpp::init wurde aufgerufen
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Der Name der StateMachineNode ist `state_machine`.
+|===
+
+Testcase 2:
+|===
+| *Name* | TestTopicCount
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob die Anzahl der Topics richtig gesetzt wurde.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Die Anzahl der Topics ist `5`.
+|===
+
+Testcase 3:
+|===
+| *Name* | TestStaysInStartBoxState
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat im Startzustand bleibt, wenn ein StatusInfo-Event empfangen aber noch kein Knopfdruck ausgeführt wurde.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Alle StatusInfos die einen Zustandswechesel auslösen können, außer Error und ManualMode
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Startzustand. (state == STARTBOX)
+|===
+
+Testcase 4:
+|===
+| *Name* | TestLeavesStartBoxState
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat den Startzustand verlässt, falls eine Disziplin ausgewählt und eine StatusInfo-Nachricht empfangen wurde.
+| *Vorbedingung* | Disziplin ausgewählt
+| *Eingabewert(e)* | StatusInfo(STARTBOX_OPEN)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Subautomat `DRIVING`. (state == DR_NORMAL)
+|===
+
+Testcase 5:
+|===
+| *Name* | TestFullDisciplineOneParallelPark
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat die Zustandsübergänge für ein paralleles Parken richtig umsetzt.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit parallelem Einparken ausgelöst werden würden.
+| *Erwartete Ausgabe* | Der Zustandsautomat befindet sich final wieder im Fahrzustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 6:
+|===
+| *Name* | TestFullDisciplineOnePerpendicularPark
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat die Zustandsübergänge für ein senkrechtes Parken richtig umsetzt.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit senkrechtem Einparken ausgelöst werden würden.
+| *Erwartete Ausgabe* | Der Zustandsautomat befindet sich final wieder im Fahrzustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 7:
+|===
+| *Name* | TestNoParkingSpotFound
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat den Subautomat `PARKING` verlässt, falls kein Parkplatz gefunden wurde.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit abgebrochener Parkplatzsuche ausgelöst werden würden.
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt wieder in den Subautomat `DRIVING`. (state == DR_NORMAL)
+|===
+
+Testcase 8:
+|===
+| *Name* | TestParallelParkingFailed
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat den Subautomat `PARKING` verlässt, falls ein paralleles Einparken fehlgeschlagen ist.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit abgebrochenem parallelen Einparken ausgelöst werden würden.
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt wieder in den Subautomat `DRIVING`. (state == DR_NORMAL)
+|===
+
+Testcase 9:
+|===
+| *Name* | TestPerpendicularParkingFailed
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat den Subautomat `PARKING` verlässt, falls ein senkrechtes Einparken fehlgeschlagen ist.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit abgebrochenem senkrechtem Einparken ausgelöst werden würden.
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt wieder in den Subautomat `DRIVING`. (state == DR_NORMAL)
+|===
+
+Testcase 10:
+|===
+| *Name* | TestTransitIntoManualModeFromStartBox
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Zustand `STARTBOX` in den Zustand `MANUAL_MODE` wechseln kann, falls eine entsprechende StatusInfo-Nachricht empfangen wurde.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | StatusInfo(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Subautomat `MANUAL_MODE`. (state == MANUAL_MODE)
+|===
+
+Testcase 11:
+|===
+| *Name* | TestTransitIntoManualModeDisciplineOne
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat von jedem möglichen Zustand in Disziplin 1 in den Zustand `MANUAL_MODE` wechseln kann, falls eine entsprechende StatusInfo-Nachricht empfangen wurde.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | StatusInfo(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt immer in den Zustand `MANUAL_MODE`. (state == MANUAL_MODE)
+|===
+
+
+Testcase 12:
+|===
+| *Name* | TestDoesNotReactToInvalidMessage
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat im Zustand `DR_NORMAL` nicht auf eine ungültige StatusInfo-Nachricht reagiert.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Alle ungültigen StatusInfo Nachrichten für den Zustand `DR_NORMAL`
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Zustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 13:
+|===
+| *Name* | TestDisciplineObstacleEvasionCourse
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat alle Zustände für Disziplin 2 richtig umsetzt.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | Sequenz an StatusInfo-Nachrichten, die bei einer Fahrt mit  Hindernissen ausgelöst werden würden.
+| *Erwartete Ausgabe* | Die zurückgelieferte Sequent an Zuständen entspricht der erwarteten Sequenz.
+|===
+
+
+Testcase 14:
+|===
+| *Name* | TestTransitIntoManualModeDisciplineTwo
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat von jedem möglichen Zustand in Disziplin 2 in den Zustand `MANUAL_MODE` wechseln kann, falls eine entsprechende StatusInfo-Nachricht empfangen wurde.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | StatusInfo(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt immer in den Zustand `MANUAL_MODE`. (state == MANUAL_MODE)
+|===
+
+Testcase 15:
+|===
+| *Name* | TestDoesNotReactToInvalidMessage2
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat im Zustand `DR_NORMAL` nicht auf ungültige StatusInfo-Nachricht reagiert.
+| *Vorbedingung* | Disziplin 2 ausgewählt
+| *Eingabewert(e)* | Alle ungültigen StatusInfo Nachrichten für den Zustand `DR_NORMAL`
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Zustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 16:
+|===
+| *Name* | TestDoesNotReactToInvalidMessageInPark
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat im Subautomat `PARKING` nicht auf ungültige StatusInfo-Nachricht reagiert.
+| *Vorbedingung* | Disziplin 1 ausgewählt
+| *Eingabewert(e)* | Alle ungültigen StatusInfo Nachrichten im Subautomat `PARKING`
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Subautomat `PARKING`. (state == PARKING)
+|===
+
+Testcase 17:
+|===
+| *Name* | TestStaysInManualMode
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat im Zustand `MANUAL_MODE` nicht auf ungültige StatusInfo-Nachricht reagiert.
+| *Vorbedingung* | Zustand `MANUAL_MODE`
+| *Eingabewert(e)* | Alle ungültigen StatusInfo Nachrichten für den Zustand `MANUAL_MODE`
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Zustand `MANUAL_MODE`. (state == MANUAL_MODE)
+|===
+
+Testcase 18:
+|===
+| *Name* |  TestEntersShutdown
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Zustand `ERROR` in den Zustand `SHUTDOWN` wechselt, falls eine `WATCHDOG_TIMEOUT` Nachricht empfangen wurde.
+| *Vorbedingung* | Zustand Error
+| *Eingabewert(e)* | StatusInfo(WATCHDOG_TIMEOUT)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `SHUTDOWN`. (state == SHUTDOWN)
+|===
+
+Testcase 19:
+|===
+| *Name* | TestIgnoresWarning
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat nicht auf eine `ERROR`-Nachricht vom Typ `WARNING` reagiert. Die Reaktion auf Warnungen wird vom Zustandsautomat nicht unterstützt.
+| *Vorbedingung* | Zustand `DR_NORMAL`
+| *Eingabewert(e)* | `ERROR`-Nachricht vom Typ `WARNING`
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Zustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 20:
+|===
+| *Name* | TestCanReturnFromManualMode
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Zustand `MANUAL_MODE` in den Zustand `DR_NORMAL` wechselt, falls eine `MANUAL_MODE_EXIT` Nachricht empfangen wurde.
+| *Vorbedingung* | Zustand `MANUAL_MODE`
+| *Eingabewert(e)* | StatusInfo(MANUAL_MODE_EXIT)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 21:
+|===
+| *Name* | TestReactsToErrorInDrive
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Zustand `DR_NORMAL` in den Zustand `ERROR` wechselt, falls eine `ERROR` Nachricht vom Typ `ERROR` empfangen wurde.
+| *Vorbedingung* | Zustand `DR_NORMAL`
+| *Eingabewert(e)* | Error-Nachricht
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+Testcase 22:
+|===
+| *Name* | TestReactsToErrorInPark
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Subautomat `PARKING` in den Zustand `ERROR` wechselt, falls eine `ERROR` Nachricht vom Typ `ERROR` empfangen wurde.
+| *Vorbedingung* | Subautomat `PARKING`
+| *Eingabewert(e)* | Error-Nachricht
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+Testcase 23:
+|===
+| *Name* | TestReactsToErrorInOvertake
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Subautomat `OVERTAKE` in den Zustand `ERROR` wechselt, falls eine `ERROR` Nachricht vom Typ `ERROR` empfangen wurde.
+| *Vorbedingung* | Subautomat `OVERTAKE`
+| *Eingabewert(e)* | Error-Nachricht
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `ERROR`. (state == ERROR)
+|===
+
+Testcase 24:
+|===
+| *Name* | TestCanLeaveErrorToManualMode
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat vom Zustand `ERROR` in den Zustand `MANUAL_MODE` wechselt, falls eine `MANUAL_MODE_ENTER` Nachricht empfangen wurde.
+| *Vorbedingung* | Zustand `ERROR`
+| *Eingabewert(e)* | StatusInfo(MANUAL_MODE_ENTER)
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `MANUAL_MODE`. (state == MANUAL_MODE)
+|===
+
+Testcase 25:
+|===
+| *Name* | TestCanReactToSignMessage
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob eine SignMessage mit einen Parkplatzschild wie eine StatusInfo Nachricht vom `PAKING_INTENT` behandelt wird.
+| *Vorbedingung* | Zustand `DR_NORMAL`
+| *Eingabewert(e)* | SignMessage
+| *Erwartete Ausgabe* | Der Zustandsautomat wechselt in den Zustand `PR_SEARCH`
+|===
+
+Testcase 26:
+|===
+| *Name* | TestCanIgnoreSignMessage
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob alle anderen Schiler-Nachrichten ignoriert werden. Andere Schilder als Parkplatzschilder werden noch nicht unterstützt.
+| *Vorbedingung* | Zustand `DR_NORMAL`
+| *Eingabewert(e)* | SignMessage
+| *Erwartete Ausgabe* | Der Zustandsautomat bleibt im Zustand `DR_NORMAL`. (state == DR_NORMAL)
+|===
+
+Testcase 27:
+|===
+| *Name* | TestCanReceiveFromUpdateMethod
+| *Testobjekt* | StateMachine::update()
+| *Beschreibung* | Testet, ob die `Update()` Methode den aktuellen Zustand versenden kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Der aktuelle Zustand wird im Testfall empfangen.
+|===
+
+Die nächsten Testfälle werden automatisiert erstellt. Im Testfall wird eine zufällige Testsequenz erstellt und an den Zustandsautomaten übergeben. Ein Testorakel erstellt mithilfe einer Lookup-Tabelle aus den Zustandsübergängen die erwartete Sequenz von Zuständen. Die erwartete und die tatsächliche Sequenz werden verglichen. Da der Aufbau immer gleich ist, werden die Testfälle in einer Tabelle zusammengefasst.
+
+Testcase 28 - 32:
+|===
+| *Name* | TestRandom<NBR>Sequence
+| *Testobjekt* | StateMachine
+| *Beschreibung* | Testet, ob der Zustandsautomat auf eine zufällige Sequenz von StatusInfo Nachrichten korrekt reagieren kann. <NBR> steht für die Länge der Sequenz. Diese nimmt mit jedem Testfall zu. Die Staffelung ist 5, 25, 50, 100, 500. Die Disziplin wird ebenfalls zufällig ausgewählt.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Zufällige Sequenz von StatusInfo Nachrichten
+| *Erwartete Ausgabe* | Gleichheit der tatsächlichen Zustandssequenz und der vom Orakel generierten Sequenz.
+|===
+
+
+== Startbox
+
+Die Tests für die StartboxNode befinden sich im Ordner `psaf_startbox/test`. Die Testfälle bestehen aus Unit-Tests, Integrationstests und Simulationstests.
+
+=== Unittests
+
+Bei den Unit-Tests werden die Methoden der StartboxNode auf Korrektheit überprüft. Hierbei wird jede Methode mindestens einmal zur Ausführung gebracht. Die Startbox Node schaltet sich ab, sobald der Zustand STARTBOX verlassen wird. Diese Funktionalität wird ebenfalls von den Unit-Tests überprüft.
+
+
+Testcase 1:
+|===
+| *Name* | TestCanSetupTestSuite
+| *Testobjekt* | Testsuite
+| *Beschreibung* | Testet, ob die Testsuite korrekt initialisiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Kein Absturz
+|===
+
+Testcase 2:
+|===
+| *Name* | TestCanReadQRCode
+| *Testobjekt* | readQR(...)
+| *Beschreibung* | Testet, ob der QR-Code korrekt gelesen wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | QR-Code mit Inhalt "STOP"
+| *Erwartete Ausgabe* | Variable last_read_qr_ ist auf "STOP" gesetzt.
+|===
+
+Testcase 3:
+|===
+| *Name* | TestDoesNotDetectQRCode
+| *Testobjekt* | readQR(...)
+| *Beschreibung* | Testet, ob kein QR-Code erkannt wird, wenn das Eingabebild keinen QR-Code enthält.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eingabebild ohne QR-Code
+| *Erwartete Ausgabe* | Variable last_read_qr_ ist ohne Inhalt = "".
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanDetectQRCodeNotStop
+| *Testobjekt* | readQR(...)
+| *Beschreibung* | Testet, ob ein QR-Code mit dem Inhalt "TEST" erkannt wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eingabebild mit QR-Code mit Inhalt "TEST"
+| *Erwartete Ausgabe* | Variable last_read_qr_ ist auf "TEST" gesetzt.
+|===
+
+Testcase 5:
+|===
+| *Name* | TestSetsReadFlagCorrectly
+| *Testobjekt* | readQR(...)
+| *Beschreibung* | Testet, ob die Variable detected_at_least_once_ richtig gesetzt wird. Diese zeigt an, ob der QR-Code mindestens einmal erkannt wurde.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Eingabebild mit QR-Code mit Inhalt "TEST"
+| *Erwartete Ausgabe* | Variable detected_at_least_once_ ist auf true gesetzt.
+|===
+
+Testcase 6:
+|===
+| *Name* | TestCanSetOpenCorrectly
+| *Testobjekt* | readQR(...)
+| *Beschreibung* | Testet, ob die Variable open_ richtig gesetzt wird. Diese zeigt an, ob die Startbox bereits geöffnet wurde. Die Variable wird auf true gesetzt, nachdem mindestens einmal STOP gelesen und anschließend für 11 Frames kein QR-Code erkannt wurde.
+| *Vorbedingung* | no_qr_message_counter_ = 10
+| *Eingabewert(e)* | Eingabebild ohne QR-Code
+| *Erwartete Ausgabe* | Variable open_ ist auf true gesetzt.
+|===
+
+Testcase 7:
+|===
+| *Name* | TestCanProcessSensorZero
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob nur die Bilder RGB-Kamera (sensor =  0) verarbeitet werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Farbbild ohne QR-Code und Sensor 0
+| *Erwartete Ausgabe* | Variable last_read_qr_ ist ohne Inhalt = "".
+|===
+
+Testcase 8:
+|===
+| *Name* | TestCanProcessSensorOne
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob Bilder von der Tiefenbildkamera (sensor = 1) ignoriert werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Bild mit QR-Code und Sensor 1
+| *Erwartete Ausgabe* | Variable last_read_qr_ bleibt auf dem initialen Wert "INIT".
+|===
+
+Testcase 9:
+|===
+| *Name* | TestCanReactToEmptyImage
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob die StartboxNode mit einem leeren Bild umgehen kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Leeres Bild mit Dimensionen 0x0
+| *Erwartete Ausgabe* | Variable last_read_qr_ bleibt auf dem initialen Wert "INIT" und es kommt nicht zu einem Absturz.
+|===
+
+Testcase 10:
+|===
+| *Name* | TestCanReactToWrongWidth
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob die StartboxNode mit einem Bild mit einer falschen Breite umgehen kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | QR-Code Bild mit Breite 1280x480
+| *Erwartete Ausgabe* | Das Bild wird in die richtige Auflösung skaliert und der QR-Code korrekt gelesen. (Inhalt "STOP").
+|===
+
+Testcase 11:
+|===
+| *Name* | TestCanReactToWrongHeight
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob die StartboxNode mit einem Bild mit einer falschen Höhe umgehen kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | QR-Code Bild mit Höhe 640x960
+| *Erwartete Ausgabe* | Das Bild wird in die richtige Auflösung skaliert und der QR-Code korrekt gelesen. (Inhalt "STOP").
+|===
+
+Testcase 12:
+|===
+| *Name* | TEstCanReactToWrongWidthAndHeight
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Testet, ob die StartboxNode mit einem Bild mit einer falschen Breite und Höhe umgehen kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | QR-Code Bild mit Breite 1280x960
+| *Erwartete Ausgabe* | Das Bild wird in die richtige Auflösung skaliert und der QR-Code korrekt gelesen. (Inhalt "STOP").
+|===
+
+Testcase 13:
+|===
+| *Name* | TestReadBarCodeButDoesNotReact
+| *Testobjekt* | processImage(...)
+| *Beschreibung* | Die verwendete Bibliothek `zbar` kann auch Barcodes lese. Auf diese darf jedoch keine Reaktion erfolgen.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Bild mit einem Barcode
+| *Erwartete Ausgabe* | Variable last_read_qr_ bleibt auf dem initialen Wert "INIT".
+|===
+
+Testcase 14:
+|===
+| *Name* | TestCanAssignState
+| *Testobjekt* | updateState(...)
+| *Beschreibung* | Testet, ob die Variable current_state_ richtig gesetzt wird. Hierfür wird die Callback-Funktion `updateState` aufgerufen.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | StateNachricht mit Wert 42
+| *Erwartete Ausgabe* | Variable current_state_ ist auf 42 gesetzt.
+|===
+
+Testcase 15:
+|===
+| *Name* | TestCanCallUpdate
+| *Testobjekt* | update(...)
+| *Beschreibung* | Testet, ob die Methode `update()` aufgerufen werden kann und es nicht zu einem Absturz kommt.
+| *Vorbedingung* | is_open_ = true
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Die Methode `update()` wird aufgerufen. Es kommt nicht zu einem Absturz.
+|===
+
+Testcase 16:
+|===
+| *Name* | TestCanCallUpdateWithFalseIsOpen
+| *Testobjekt* | update(...)
+| *Beschreibung* | Testet, ob die Methode `update()` aufgerufen werden kann und es nicht zu einem Absturz kommt.
+| *Vorbedingung* | is_open_ = false
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Die Methode `update()` wird aufgerufen. Es kommt nicht zu einem Absturz.
+|===
+
+Testcase 17:
+|===
+| *Name* | TestDoesIgnoreIfSensorIsNotZero
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob Messwerte die nicht von US-Sensor 0 (Front) sind, ignoriert werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert von US-Sensor 1
+| *Erwartete Ausgabe* | Variable last_received_distance_ bleibt auf dem initialen Wert "0.0".
+|===
+
+Testcase 18:
+|===
+| *Name* | TestDoesReactToZeroSensor
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob Messwerte von US-Sensor 0 (Front) richtig verarbeitet werden.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 100.0 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable last_received_distance_ wird auf den Wert empfangenen Wert "100.0" gesetzt.
+|===
+
+Testcase 19:
+|===
+| *Name* | TestIgnoresZeroRange
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob Messwerte mit Wert 0.0 ignoriert werden. Diese treten nur bei fehlerhaften Messungen auf.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.0 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable last_received_distance_ bleibt auf dem im Testfall gesetzten Wert initialen Wert "-1.0".
+|===
+
+Testcase 20:
+|===
+| *Name* | TestIgnoredNegativeRange
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob Messwerte mit negativen Werten ignoriert werden. Diese treten nur bei fehlerhaften Messungen auf.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert -10.0 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable last_received_distance_ bleibt auf dem im Testfall gesetzten Wert initialen Wert "5.0".
+|===
+
+Testcase 21:
+|===
+| *Name* | TestIncreasesCounterIfRangeGreaterThirty
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob der Zähler für Messungen mit Werten größer 0.30 erhöht wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.31 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable us_message_counter_ wird von 0 auf 1 erhöht.
+|===
+
+Testcase 22:
+|===
+| *Name* | TestDoesNotIncreaseCounterIfRangeLessThanThirty
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob der Zähler für Messungen mit Werten kleiner 0.30 nicht erhöht wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.29 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable us_message_counter_ bleibt auf dem initialen Wert 0.
+|===
+
+Testcase 23:
+|===
+| *Name* | TestDoesIncreaseCounterIfRangeIsThirty
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob der Zähler für Messungen mit Werten 0.30 erhöht wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.30 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable us_message_counter_ wird von 0 auf 1 erhöht.
+|===
+
+Testcase 24:
+|===
+| *Name* | TestCanIncreaseMultipleTimes
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob der Zähler für Messungen mit Werten größer 0.30 erhöht wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | 3 Messwerte von US-Sensor 0 mit Werten 0.31, 0.32, 0.3
+| *Erwartete Ausgabe* | Variable us_message_counter_ wird von 0 auf 3 erhöht.
+|===
+
+Testcase 25:
+|===
+| *Name* | TestCanResetCounterToZeroIfRangeWasLessThanThirty
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob der Zähler bei Messungen mit Werten kleiner 0.30 zurückgesetzt wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.29 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable us_message_counter_ wird auf 0 zurückgesetzt.
+|===
+
+
+Testcase 26:
+|===
+| *Name* | TestSetIsOpenAfterElevenMeasurementsOverThirty
+| *Testobjekt* | updateSensorValue(...)
+| *Beschreibung* | Testet, ob die Variable is_open_ auf true gesetzt wird, wenn die 11te Messung mit Werten größer 0.30 erfolgt.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert 0.31 von US-Sensor 0
+| *Erwartete Ausgabe* | Variable is_open_ wird auf true gesetzt.
+|===
+
+Testcase 27:
+|===
+| *Name* | TestShutdownCanBeCalled
+| *Testobjekt* | update()
+| *Beschreibung* | Testet, ob sich die Node abschaltet falls der aktuelle Zustand nicht "STARTBOX" ist und die update()-Methode aufgerufen wird.
+| *Vorbedingung* | Zustand ist nicht "STARTBOX"
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Node wird beendet.
+|===
+
+
+=== Integrationstest
+
+Die Integrationstests überprüfen die Kommunikationsschnittstellen der Startbox. Diese sind:
+
+. ImageSubscriber
+. UltrasonicSubscriber
+. StateSubscriber
+. StatusInfoPublisher
+
+Testcase 1:
+|===
+| *Name* | TestNodeCanBeCreated
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob eine StartboxNode erstellt werden kann.
+| *Vorbedingung* | rclcpp::init() wurde aufgerufen
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | "startbox" im ROS-Nodegraph
+|===
+
+Testcase 2:
+|===
+| *Name* | TestCanInitTestSuite
+| *Testobjekt* | TestSuite
+| *Beschreibung* | Testet, ob die TestSuite initialisiert werden kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Kein Fehler
+|===
+
+Testcase 3:
+|===
+| *Name* | TestTopicCount
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob die Anzahl der Topics im ROS-Nodegraph korrekt ist.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* |  6 + Anzahl der US-Sensoren
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanReceiveQRCodeImageMessageAndDecode
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob ein QR-Code-Bild erfolgreich empfangen und decodiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Bildnahcrichten mit und ohne QR-Code
+| *Erwartete Ausgabe* | Empfang der StatusInfo "STARTBOX_OPEN"
+|===
+
+Testcase 5:
+|===
+| *Name* | TestCanReceiveUltrasonicMessageAndDecode
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob ein Ultraschallsensor-Wert erfolgreich empfangen und decodiert wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Messwert von Ultraschallsensor 0
+| *Erwartete Ausgabe* | Empfang der StatusInfo "STARTBOX_OPEN"
+|===
+
+Testcase 6:
+|===
+| *Name* | TestCanReceiveStateAndShutsDown
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob nach dem Empfang eines anderen Zustands die Node abgeschaltet wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Nachricht mit Zustand 12
+| *Erwartete Ausgabe* | Node wird beendet.
+|===
+
+
+=== Simulationstests
+
+In den Simulationstests wird überprüft, ob die StartboxNode in der Lage ist das Öffnen der Startbox zu erkennen. Hierfür sind 2 Bags vorhanden. Einmal mit Bildern, einmal mit Ultraschallsignalen.
+
+[NOTE]
+Die Bags enthalten Daten aus echten Aufnahmen von Modellautos, da die Simulationsumgebung weder die Simulation der Startboxöffnung unterstützt noch konkrete Ultraschallwerte geliefert hat. Sobald die Simulationsumgebung entsprechend ergänzt wurde, müssen die Bags entsprechend ausgetauscht werden.
+
+Testcase 1:
+|===
+| *Name* | TestCanInitTestSuite
+| *Testobjekt* | TestSuite
+| *Beschreibung* | Testet, ob die TestSuite initialisiert werden kann.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Kein Fehler
+|===
+
+Testcase 2:
+|===
+| *Name* | TestImageBagCount
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob die Anzahl der Nachrichten im lokalen Vektor mit den Anzahl der Bilder im Bag-File übereinstimmt.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Anzahl der Nachrichten = 74
+|===
+
+Testcase 3:
+|===
+| *Name* | TestRangeBagCount
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob die Anzahl der Nachrichten im lokalen Vektor mit der Anzahl der Ultraschallsignale im Bag-File übereinstimmt.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Keine
+| *Erwartete Ausgabe* | Anzahl der Nachrichten = 251
+|===
+
+Testcase 4:
+|===
+| *Name* | TestCanDetectOpeningBoxWithImage
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob die Öffnung der Startbox über einen Videostream erkannt wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Bildnachrichten, die eine Toröffnung zeigen.
+| *Erwartete Ausgabe* | node->is_open_ = true
+|===
+
+Testcase 5:
+|===
+| *Name* | TestCanDetectOpenBoxWithUS
+| *Testobjekt* | StartboxNode
+| *Beschreibung* | Testet, ob die Öffnung der Startbox über Ultraschallsignale erkannt wird.
+| *Vorbedingung* | Keine
+| *Eingabewert(e)* | Ultraschallsignale, die eine Toröffnung zeigen.
+| *Erwartete Ausgabe* | node->is_open_ = true
+|===
+
+
+

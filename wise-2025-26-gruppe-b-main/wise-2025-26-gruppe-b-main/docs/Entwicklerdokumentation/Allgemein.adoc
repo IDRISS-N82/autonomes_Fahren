@@ -1,0 +1,15 @@
+= Allgemeine Informationen
+:toclevels: 1
+
+== PSAF 1
+
+Generelle Informationen und eine Dokumentation für das PSAF 1 ist unter https://git-ce.rwth-aachen.de/af/psaf-1/psaf-1_documentation/-/jobs/artifacts/master/raw/Dokumentation/PS_AF_1.pdf?job=Pdf[PS_AF_1.pdf] im https://git-ce.rwth-aachen.de/af/psaf-1/psaf-1_documentation[PS AF 1 - Dokumentation] Repo zu finden.
+Weitere Material im Repo https://git-ce.rwth-aachen.de/af/infos[Allgemeine Informationen].
+
+== PSAF 2
+
+Informationen zum verwendeten Fahrzeug im PSAF 2 sind in der https://git-ce.rwth-aachen.de/af/cc/autos[Dokumentation] für das Carolo Cup Auto zu finden.
+
+== Carolo Cup
+
+Informationen über den Carolo Cup sind in den Regularien für den https://www.tu-braunschweig.de/fileadmin/Redaktionsgruppen/Institute_Fakultaet_5/Carolo-Cup/Basic-Cup_Regulations_210120.pdf[Basic Cup] und für den https://www.tu-braunschweig.de/fileadmin/Redaktionsgruppen/Institute_Fakultaet_5/Carolo-Cup/Master-Cup_Regulations_210120.pdf[Master Cup] zu finden.
