@@ -18,24 +18,12 @@ TrajectoryNode::TrajectoryNode()
     "lane_detection/lane_markings", qos,
     std::bind(&TrajectoryNode::laneCallback, this, std::placeholders::_1));
 
-  state_sub_ = this->create_subscription<psaf_firststeps::msg::State>(
-    "state_machine/state", qos,
-    std::bind(&TrajectoryNode::stateCallback, this, std::placeholders::_1));
-
   traj_pub_ = this->create_publisher<psaf_firststeps::msg::Trajectory>(
     "trajectory/trajectory", qos);
 }
 
-void TrajectoryNode::stateCallback(const psaf_firststeps::msg::State::SharedPtr msg)
-{
-  active_ = msg->state == psaf_firststeps::msg::State::DRIVING;
-}
-
 void TrajectoryNode::laneCallback(const psaf_firststeps::msg::LaneMarkings::SharedPtr msg)
 {
-  if (!active_) {
-    return;
-  }
   publishTrajectory(*msg);
 }
 

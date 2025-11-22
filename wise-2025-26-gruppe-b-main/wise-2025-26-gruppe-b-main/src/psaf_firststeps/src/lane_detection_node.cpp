@@ -16,26 +16,14 @@ LaneDetectionNode::LaneDetectionNode()
     "color/image_raw", qos,
     std::bind(&LaneDetectionNode::imageCallback, this, std::placeholders::_1));
 
-  state_sub_ = this->create_subscription<psaf_firststeps::msg::State>(
-    "state_machine/state", qos,
-    std::bind(&LaneDetectionNode::stateCallback, this, std::placeholders::_1));
-
   lane_pub_ = this->create_publisher<psaf_firststeps::msg::LaneMarkings>(
     "lane_detection/lane_markings", qos);
 
   last_lane_.center_valid = false;
 }
 
-void LaneDetectionNode::stateCallback(const psaf_firststeps::msg::State::SharedPtr msg)
-{
-  active_ = msg->state == psaf_firststeps::msg::State::DRIVING;
-}
-
 void LaneDetectionNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
-  if (!active_) {
-    return;
-  }
   publishLane(msg->header.stamp);
 }
 

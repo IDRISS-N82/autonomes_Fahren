@@ -32,10 +32,6 @@ ControllerNode::ControllerNode()
     GET_SPEED_TOPIC, qos,
     std::bind(&ControllerNode::speedCallback, this, std::placeholders::_1));
 
-  state_sub_ = this->create_subscription<psaf_firststeps::msg::State>(
-    "state_machine/state", qos,
-    std::bind(&ControllerNode::stateCallback, this, std::placeholders::_1));
-
   steering_pub_ = this->create_publisher<std_msgs::msg::Int16>(SET_STEERING_TOPIC, qos);
   speed_forward_pub_ = this->create_publisher<std_msgs::msg::Int16>(SET_SPEED_FORWARD_TOPIC, qos);
   speed_backward_pub_ = this->create_publisher<std_msgs::msg::Int16>(SET_SPEED_BACKWARD_TOPIC, qos);
@@ -43,15 +39,6 @@ ControllerNode::ControllerNode()
   control_timer_ = this->create_wall_timer(
     std::chrono::duration<double>(1.0 / control_rate_),
     std::bind(&ControllerNode::controlStep, this));
-}
-
-void ControllerNode::stateCallback(const psaf_firststeps::msg::State::SharedPtr msg)
-{
-  active_ = msg->state == psaf_firststeps::msg::State::DRIVING;
-  if (!active_) {
-    publishSpeed(0.0);
-    publishSteering(0.0);
-  }
 }
 
 void ControllerNode::trajectoryCallback(const psaf_firststeps::msg::Trajectory::SharedPtr msg)
@@ -66,7 +53,7 @@ void ControllerNode::speedCallback(const std_msgs::msg::Int16::SharedPtr msg)
 
 void ControllerNode::controlStep()
 {
-  if (!active_ || !latest_traj_) {
+  if (!latest_traj_) {
     return;
   }
 

@@ -1,3 +1,0 @@
-uint8 STARTBOX_OPEN=0
-uint8 WATCHDOG_TIMEOUT=1
-uint8 code
