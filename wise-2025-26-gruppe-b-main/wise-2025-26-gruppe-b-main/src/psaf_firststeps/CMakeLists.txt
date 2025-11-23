@@ -86,7 +86,9 @@ rosidl_target_interfaces(controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp
 add_executable(state_machine_node src/state_machine_node.cpp)
 ament_target_dependencies(state_machine_node
         rclcpp
-        std_msgs)
+        std_msgs
+        psaf_ucbridge_msgs
+        psaf_configuration)
 target_include_directories(state_machine_node PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
