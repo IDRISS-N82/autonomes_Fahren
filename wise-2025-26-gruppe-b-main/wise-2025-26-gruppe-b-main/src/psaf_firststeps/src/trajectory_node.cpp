@@ -42,21 +42,32 @@ void TrajectoryNode::laneCallback(const psaf_firststeps::msg::LaneMarkings::Shar
 void TrajectoryNode::publishTrajectory(const psaf_firststeps::msg::LaneMarkings & lane)
 {
   std::vector<geometry_msgs::msg::Point> usable_points;
-  if (lane.center_valid) {
-    for (const auto & p : lane.center_lane) {
-      if (p.x >= x_min_ && p.x <= x_max_ && isValidPoint(p, max_lateral_)) {
-        usable_points.push_back(p);
-      }
+
+  auto add_if_valid = [this, &usable_points](const geometry_msgs::msg::Point & point) {
+    if (point.x >= x_min_ && point.x <= x_max_ && isValidPoint(point, max_lateral_)) {
+      usable_points.push_back(point);
     }
-  } else {
+  };
+
+  if (lane.center_valid && !lane.center_lane.empty()) {
+    for (const auto & p : lane.center_lane) {
+      add_if_valid(p);
+    }
+  } else if (!lane.left_lane.empty() && !lane.right_lane.empty()) {
     const size_t n = std::min(lane.left_lane.size(), lane.right_lane.size());
     for (size_t i = 0; i < n; ++i) {
       geometry_msgs::msg::Point p;
       p.x = lane.left_lane[i].x;
       p.y = 0.5 * (lane.left_lane[i].y + lane.right_lane[i].y);
-      if (p.x >= x_min_ && p.x <= x_max_ && isValidPoint(p, max_lateral_)) {
-        usable_points.push_back(p);
-      }
+      add_if_valid(p);
+    }
+  } else if (!lane.right_lane.empty()) {
+    for (const auto & p : lane.right_lane) {
+      add_if_valid(p);
+    }
+  } else if (!lane.left_lane.empty()) {
+    for (const auto & p : lane.left_lane) {
+      add_if_valid(p);
     }
   }
 
