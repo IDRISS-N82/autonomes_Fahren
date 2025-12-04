@@ -24,6 +24,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(psaf_ucbridge_msgs REQUIRED)
 find_package(psaf_configuration REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -56,10 +58,12 @@ ament_target_dependencies(lane_detection_node
         rclcpp
         sensor_msgs
         geometry_msgs
-        psaf_configuration)
+        psaf_configuration
+        cv_bridge)
 target_include_directories(lane_detection_node PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
+target_link_libraries(lane_detection_node ${OpenCV_LIBRARIES})
 rosidl_target_interfaces(lane_detection_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 add_executable(trajectory_node src/trajectory_node.cpp)
