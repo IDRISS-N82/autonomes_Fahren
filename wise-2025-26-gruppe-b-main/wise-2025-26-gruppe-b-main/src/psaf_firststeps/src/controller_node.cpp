@@ -141,7 +141,9 @@ void ControllerNode::publishSpeed(double desired_speed)
     speed_forward_pub_->publish(msg);
   } else {
     std_msgs::msg::Int16 msg;
-    msg.data = static_cast<int16_t>(std::clamp(-cmd, static_cast<int16_t>(0), static_cast<int16_t>(500)));
+    // Ensure consistent types for clamping negative commands
+    const int16_t magnitude = static_cast<int16_t>(-cmd);
+    msg.data = std::clamp<int16_t>(magnitude, 0, 500);
     speed_backward_pub_->publish(msg);
   }
 }
