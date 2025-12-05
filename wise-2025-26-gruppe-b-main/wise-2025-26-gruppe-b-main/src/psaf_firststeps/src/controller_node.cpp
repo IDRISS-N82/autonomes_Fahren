@@ -84,7 +84,26 @@ void ControllerNode::controlStep()
     return;
   }
 
-  const double curvature = curvatureAt(*poly, curvature_lookahead_);
+  // Trajectory points are approximately equidistant in arc length, so derive a
+  // lookahead position by walking the polyline until the desired arc length is reached.
+  double lookahead_x = curvature_lookahead_;
+  if (usable_points.size() >= 2) {
+    double accumulated = 0.0;
+    for (size_t i = 1; i < usable_points.size(); ++i) {
+      const double dx = usable_points[i].x - usable_points[i - 1].x;
+      const double dy = usable_points[i].y - usable_points[i - 1].y;
+      accumulated += std::hypot(dx, dy);
+      if (accumulated >= curvature_lookahead_) {
+        lookahead_x = usable_points[i].x;
+        break;
+      }
+    }
+    if (accumulated < curvature_lookahead_) {
+      lookahead_x = usable_points.back().x;
+    }
+  }
+
+  const double curvature = curvatureAt(*poly, lookahead_x);
   const double phi_ff = std::atan(curvature * wheel_base_);
   const double d = poly->c;
   const double psi = std::atan(poly->b);
